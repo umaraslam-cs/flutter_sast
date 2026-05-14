@@ -1,0 +1,8 @@
+# Exclude local / IDE artifacts from the published tarball (especially when
+# not publishing from a git checkout). See https://dart.dev/tools/pubignore
+.dart_tool/
+build/
+.idea/
+.cursor/
+*.iml
+.metadata

@@ -1,0 +1,43 @@
+name: flutter_sast
+version: 0.1.0
+description: >-
+  SAST and vulnerability assessment CLI for Flutter/Dart. Detects hardcoded
+  secrets, insecure storage, weak crypto, AndroidManifest and iOS plist
+  misconfigurations, and vulnerable dependencies.
+homepage: https://github.com/umaraslam-cs/flutter_sast
+repository: https://github.com/umaraslam-cs/flutter_sast
+issue_tracker: https://github.com/umaraslam-cs/flutter_sast/issues
+
+# Test fixtures deliberately contain fake API-key-shaped strings; pub.dev
+# rejects publishes that look like leaked secrets unless allowlisted.
+false_secrets:
+  - /test/rules_test.dart
+
+topics:
+  - security
+  - cli
+  - static-analysis
+  - flutter
+
+# Uses dart:io (scanner, reporters); not for Web or wasm-only targets.
+platforms:
+  linux:
+  macos:
+  windows:
+
+environment:
+  # Flutter 3.0.0 shipped Dart 2.17; keep lower bound aligned with that release.
+  sdk: ">=2.17.0 <4.0.0"
+
+dependencies:
+  args: ^2.4.2
+  # path 1.9+ requires Dart 3; 1.8.x supports Dart 2.17 (Flutter 3.0).
+  path: ">=1.8.3 <2.0.0"
+  yaml: ^3.1.2
+
+dev_dependencies:
+  lints: ">=2.1.1 <3.0.0"
+  test: ^1.24.0
+
+executables:
+  flutter_sast: flutter_sast

@@ -12,6 +12,7 @@ issue_tracker: https://github.com/umaraslam-cs/flutter_sast/issues
 # rejects publishes that look like leaked secrets unless allowlisted.
 false_secrets:
   - /test/rules_test.dart
+  - /test/fixtures/
 
 topics:
   - security

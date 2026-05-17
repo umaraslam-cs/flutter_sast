@@ -8,7 +8,11 @@ import 'package:flutter_sast/flutter_sast.dart';
 import 'package:flutter_sast/src/analyzers/pubspec_analyzer.dart';
 import 'package:flutter_sast/src/rules/base_rule.dart';
 import 'package:flutter_sast/src/analyzers/android_manifest_analyzer.dart';
+import 'package:flutter_sast/src/analyzers/config_analyzer.dart';
 import 'package:flutter_sast/src/rules/dart/code_security_rule.dart';
+import 'package:flutter_sast/src/rules/dart/credentials_in_exception_rule.dart';
+import 'package:flutter_sast/src/rules/dart/sensitive_query_params_rule.dart';
+import 'package:flutter_sast/src/rules/dart/text_field_autocomplete_rule.dart';
 import 'package:flutter_sast/src/rules/dart/hardcoded_secrets_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_network_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_storage_rule.dart';
@@ -218,6 +222,38 @@ await prefs.setString(_keyLastSessionDate, DateTime.now().toIso8601String());
     });
   });
 
+  group('ConfigAnalyzer', () {
+    test('CONFIG-003 detects release signing with debug keystore', () {
+      final Directory dir = Directory.systemTemp.createTempSync('fsast_cfg_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final File gradle = File('${dir.path}/android/app/build.gradle')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('''
+android {
+  buildTypes {
+    release {
+      signingConfig signingConfigs.debug
+      storeFile file("\${System.properties['user.home']}/.android/debug.keystore")
+    }
+  }
+}
+''');
+      final findings = ConfigAnalyzer().analyze(dir.path);
+      expect(findings.any((v) => v.ruleId == 'CONFIG-003'), isTrue);
+      expect(gradle.existsSync(), isTrue);
+    });
+
+    test('CONFIG-004 detects ProGuard keep wildcard', () {
+      final Directory dir = Directory.systemTemp.createTempSync('fsast_pg_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      File('${dir.path}/android/app/proguard-rules.pro')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('-keep class com.example.app.** { *; }');
+      final findings = ConfigAnalyzer().analyze(dir.path);
+      expect(findings.any((v) => v.ruleId == 'CONFIG-004'), isTrue);
+    });
+  });
+
   group('AndroidManifestAnalyzer', () {
     test('detects maps platform API key in manifest', () {
       const String manifest = '''
@@ -271,7 +307,79 @@ void signRequest(String secret) {
     });
   });
 
+  group('SensitiveQueryParamsRule', () {
+    final SensitiveQueryParamsRule rule = SensitiveQueryParamsRule();
+
+    test('detects token in queryParameters', () {
+      const String code = '''
+final uri = Uri(
+  path: '/api',
+  queryParameters: {'token': accessToken},
+);
+''';
+      expect(
+        rule.analyze('lib/api.dart', code).any((v) => v.ruleId == 'DART-012'),
+        isTrue,
+      );
+    });
+  });
+
+  group('CredentialsInExceptionRule', () {
+    final CredentialsInExceptionRule rule = CredentialsInExceptionRule();
+
+    test('detects password in throw Exception', () {
+      const String code =
+          "throw Exception('login failed for \$password');";
+      expect(
+        rule.analyze('lib/auth.dart', code).any((v) => v.ruleId == 'DART-014'),
+        isTrue,
+      );
+    });
+  });
+
+  group('TextFieldAutocompleteRule', () {
+    final TextFieldAutocompleteRule rule = TextFieldAutocompleteRule();
+
+    test('flags obscureText without IME flags', () {
+      const String code = '''
+TextField(
+  obscureText: true,
+  decoration: InputDecoration(labelText: 'Password'),
+)
+''';
+      expect(
+        rule.analyze('lib/login.dart', code).any((v) => v.ruleId == 'DART-017'),
+        isTrue,
+      );
+    });
+
+    test('passes when both IME flags set', () {
+      const String code = '''
+TextField(
+  obscureText: true,
+  enableSuggestions: false,
+  autocorrect: false,
+)
+''';
+      expect(rule.analyze('lib/login.dart', code), isEmpty);
+    });
+  });
+
   group('PubspecAnalyzer', () {
+    test('DEPS-006 flags debug packages in dependencies', () {
+      const String pubspec = '''
+dependencies:
+  flutter:
+    sdk: flutter
+  alice: ^1.0.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+''';
+      final findings = PubspecAnalyzer().analyze(pubspec);
+      expect(findings.any((v) => v.ruleId == 'DEPS-006'), isTrue);
+    });
+
     test('pinning advisory uses DEPS-003 not DEPS-002', () {
       const String pubspec = '''
 dependencies:

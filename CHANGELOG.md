@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`DART-012`** — sensitive data in URL `queryParameters` / query strings.
+- **`DART-014`** — credentials interpolated into thrown exceptions.
+- **`DART-017`** — password/PIN/OTP `TextField` missing `enableSuggestions` /
+  `autocorrect: false`.
+- **`DEPS-006`** — debug/inspector packages (`alice`, `pretty_dio_logger`, etc.)
+  declared under `dependencies`.
+- **`CONFIG-003`** — release Gradle signing references debug keystore.
+- **`CONFIG-004`** — ProGuard `-keep class ….**` wildcard defeats obfuscation.
+- **`AND-014`** — exported non-launcher activity with `singleTask` /
+  `singleInstance`.
+- **`AND-015`** — `allowBackup` without `fullBackupContent` /
+  `dataExtractionRules`.
+
 ### Changed
 
 - **Noise reduction:** removed `DEPS-001` (risky package declarations), `DEPS-004`

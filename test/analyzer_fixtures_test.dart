@@ -29,9 +29,20 @@ void main() {
       final findings = AndroidManifestAnalyzer().analyze(androidXml);
       expect(findings.any((v) => v.ruleId == 'AND-003'), isTrue);
       expect(findings.any((v) => v.ruleId == 'AND-002'), isTrue);
+      expect(findings.any((v) => v.ruleId == 'AND-015'), isTrue);
       expect(findings.any((v) => v.ruleId == 'AND-008'), isTrue);
       expect(findings.any((v) => v.ruleId == 'AND-007'), isTrue);
       expect(findings.any((v) => v.ruleId == 'AND-009'), isFalse);
+    });
+
+    test('detects AND-014 task hijacking launchMode', () {
+      const String manifest = '''
+<activity android:name=".DeepLinkActivity"
+    android:exported="true"
+    android:launchMode="singleTask" />
+''';
+      final findings = AndroidManifestAnalyzer().analyze(manifest);
+      expect(findings.any((v) => v.ruleId == 'AND-014'), isTrue);
     });
 
     test('skips launcher MAIN activity for AND-004', () {

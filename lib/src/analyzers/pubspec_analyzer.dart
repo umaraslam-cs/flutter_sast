@@ -33,6 +33,15 @@ class PubspecAnalyzer {
     'flutter_certificate_pinning',
   ];
 
+  /// Debug / inspector packages that must not ship in production dependencies.
+  static const List<String> _debugOnlyPackages = <String>[
+    'alice',
+    'pretty_dio_logger',
+    'dio_http_cache',
+    'proxy_dio',
+    'flutter_inspector',
+  ];
+
   List<Vulnerability> analyze(
     String content, {
     bool includeAppDependencyAdvisories = true,
@@ -40,12 +49,36 @@ class PubspecAnalyzer {
   }) {
     final List<Vulnerability> findings = <Vulnerability>[];
 
-    Set<String> declared;
+    Set<String> declared = <String>{};
+    Set<String> prodDependencies = <String>{};
     try {
       final dynamic doc = loadYaml(content);
       declared = _collectKeys(doc);
+      if (doc is YamlMap) {
+        prodDependencies = _collectSectionKeys(doc['dependencies']);
+      }
     } on YamlException {
       declared = <String>{};
+      prodDependencies = <String>{};
+    }
+
+    for (final String pkg in _debugOnlyPackages) {
+      if (prodDependencies.contains(pkg)) {
+        findings.add(Vulnerability(
+          ruleId: 'DEPS-006',
+          title: 'Debug package in production dependencies: $pkg',
+          description:
+              '$pkg is listed under dependencies (not dev_dependencies). '
+              'HTTP inspectors and debug proxies must not ship in release builds.',
+          recommendation:
+              'Move $pkg to dev_dependencies or remove it before release.',
+          filePath: filePath,
+          category: _category,
+          severity: Severity.high,
+          cwe: 'CWE-489',
+          owasp: 'M7: Client Code Quality',
+        ));
+      }
     }
 
     if (includeAppDependencyAdvisories) {
@@ -122,12 +155,18 @@ class PubspecAnalyzer {
   }
 
   void _addKeys(dynamic node, Set<String> sink) {
+    sink.addAll(_collectSectionKeys(node));
+  }
+
+  Set<String> _collectSectionKeys(dynamic node) {
+    final Set<String> keys = <String>{};
     if (node is YamlMap) {
       for (final dynamic key in node.keys) {
         if (key is String) {
-          sink.add(key);
+          keys.add(key);
         }
       }
     }
+    return keys;
   }
 }

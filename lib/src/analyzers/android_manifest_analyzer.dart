@@ -41,6 +41,18 @@ class AndroidManifestAnalyzer {
     r'MediaBrowser|MediaButton|AudioService|just_audio',
     caseSensitive: false,
   );
+  static final RegExp _exportedActivity = RegExp(
+    r'<activity\b[^>]*android:exported\s*=\s*"true"[^>]*>',
+    caseSensitive: false,
+  );
+  static final RegExp _launchModeTask = RegExp(
+    r'android:launchMode\s*=\s*"(?:singleTask|singleInstance)"',
+    caseSensitive: false,
+  );
+  static final RegExp _fullBackupContent =
+      RegExp(r'android:fullBackupContent');
+  static final RegExp _dataExtractionRules =
+      RegExp(r'android:dataExtractionRules');
 
   List<Vulnerability> analyze(String content) {
     final List<Vulnerability> findings = <Vulnerability>[];
@@ -79,6 +91,26 @@ class AndroidManifestAnalyzer {
         cwe: 'CWE-312',
         owasp: 'M9: Insecure Data Storage',
       ));
+      if (!_fullBackupContent.hasMatch(content) &&
+          !_dataExtractionRules.hasMatch(content)) {
+        findings.add(const Vulnerability(
+          ruleId: 'AND-015',
+          title: 'Backup enabled without exclusion rules',
+          description:
+              'allowBackup is true but neither android:fullBackupContent nor '
+              'android:dataExtractionRules is declared. SharedPreferences, '
+              'SQLite databases, and cache may sync to Google Drive '
+              'unencrypted.',
+          recommendation:
+              'Add android:fullBackupContent / android:dataExtractionRules '
+              'XML that excludes sensitive files, or set allowBackup="false".',
+          filePath: filePath,
+          category: _category,
+          severity: Severity.high,
+          cwe: 'CWE-312',
+          owasp: 'M9: Insecure Data Storage',
+        ));
+      }
     }
 
     if (_cleartextTraffic.hasMatch(content)) {
@@ -172,6 +204,36 @@ class AndroidManifestAnalyzer {
         severity: Severity.medium,
         cwe: 'CWE-250',
         owasp: 'M9: Insecure Data Storage',
+      ));
+    }
+
+    for (final RegExpMatch match in _exportedActivity.allMatches(content)) {
+      final String tag = match.group(0) ?? '';
+      final int searchEnd = (match.end + 800).clamp(0, content.length);
+      final String window = content.substring(match.start, searchEnd);
+      if (!_launchModeTask.hasMatch(window)) {
+        continue;
+      }
+      if (window.contains('android.intent.action.MAIN')) {
+        continue;
+      }
+      final String component = _androidName.firstMatch(tag)?.group(1) ?? tag;
+      findings.add(Vulnerability(
+        ruleId: 'AND-014',
+        title: 'Exported activity with task-hijacking launchMode',
+        description:
+            'Activity "$component" is exported and uses singleTask or '
+            'singleInstance. Other apps may hijack the task stack (StrandHogg-style).',
+        recommendation:
+            'Use singleTop or standard for non-launcher activities; set '
+            'android:exported="false" unless external launch is required.',
+        filePath: filePath,
+        category: _category,
+        severity: Severity.high,
+        lineNumber: _lineNumberAt(content, match.start),
+        snippet: _truncate(tag, 120),
+        cwe: 'CWE-926',
+        owasp: 'M1: Improper Platform Usage',
       ));
     }
 

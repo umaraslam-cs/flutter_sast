@@ -182,10 +182,11 @@ Heuristic pattern matching — not a full AST. Each finding includes **severity*
 | **Dart network** | `DART-002`–`002d` | Cleartext HTTP, bad cert callbacks, hardcoded proxy |
 | **Dart storage** | `DART-003`, `003b`, `003d` | Sensitive `SharedPreferences` / `GetStorage`, credential logging |
 | **Dart crypto** | `DART-004`–`004e` | MD5, SHA-1, insecure `Random`, ECB, hardcoded IV |
-| **Dart code** | `DART-005`–`005f` | SQLi sinks, path traversal, WebView JS, clipboard, biometrics |
-| **Android** | `AND-001`–`011` | Debuggable, backup, cleartext, exported components, Maps API key, SDK tokens in `strings.xml` |
+| **Dart code** | `DART-005`–`005f`, `012`, `014`, `017` | SQLi, path traversal, WebView JS, clipboard, biometrics, query-param secrets, exceptions, TextField IME |
+| **Android** | `AND-001`–`015` | Debuggable, backup/scoping, cleartext, exported components, task hijacking, Maps key, `strings.xml` tokens |
 | **iOS** | `IOS-001`–`006` | ATS bypass, file sharing; weak usage strings (`privacy` profile) |
-| **Dependencies** | `DEPS-002`–`003` | Secure-storage / pinning advisories (Flutter apps only) |
+| **Dependencies** | `DEPS-002`–`003`, `006` | Secure-storage / pinning advisories; debug packages in prod deps |
+| **Build config** | `CONFIG-001`, `003`, `004` | Env gitignore, release debug keystore, ProGuard wildcards |
 
 **`riskLevel`:** `CLEAN`, `ADVISORY` (deps-only hints), `LOW` … `CRITICAL`.
 

@@ -17,6 +17,7 @@ import 'models/vulnerability.dart';
 import 'project_info.dart';
 import 'rules/base_rule.dart';
 import 'rules/dart/code_security_rule.dart';
+import 'rules/dart/credentials_in_exception_rule.dart';
 import 'rules/dart/dart_io_web_rule.dart';
 import 'rules/dart/hardcoded_credentials_rule.dart';
 import 'rules/dart/hardcoded_secrets_rule.dart';
@@ -24,6 +25,8 @@ import 'rules/dart/insecure_network_rule.dart';
 import 'rules/dart/insecure_storage_rule.dart';
 import 'rules/dart/production_debug_rule.dart';
 import 'rules/dart/sensitive_logging_rule.dart';
+import 'rules/dart/sensitive_query_params_rule.dart';
+import 'rules/dart/text_field_autocomplete_rule.dart';
 import 'rules/dart/tls_pinning_rule.dart';
 import 'rules/dart/weak_crypto_rule.dart';
 import 'rules/dart/webview_security_rule.dart';
@@ -283,6 +286,9 @@ class FlutterSastScanner {
       CodeSecurityRule(),
       WebViewSecurityRule(allowedHosts: config.webviewAllowedHosts),
       ProductionDebugRule(),
+      SensitiveQueryParamsRule(),
+      CredentialsInExceptionRule(),
+      TextFieldAutocompleteRule(),
     ];
     if (includeWebProfile) {
       rules.add(DartIoWebRule());

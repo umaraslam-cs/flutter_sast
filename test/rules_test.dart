@@ -12,6 +12,7 @@ import 'package:flutter_sast/src/analyzers/config_analyzer.dart';
 import 'package:flutter_sast/src/rules/dart/code_security_rule.dart';
 import 'package:flutter_sast/src/rules/dart/credentials_in_exception_rule.dart';
 import 'package:flutter_sast/src/rules/dart/sensitive_query_params_rule.dart';
+import 'package:flutter_sast/src/rules/dart/flutter_secure_storage_encryption_rule.dart';
 import 'package:flutter_sast/src/rules/dart/text_field_autocomplete_rule.dart';
 import 'package:flutter_sast/src/rules/dart/hardcoded_secrets_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_network_rule.dart';
@@ -334,6 +335,62 @@ final uri = Uri(
         rule.analyze('lib/auth.dart', code).any((v) => v.ruleId == 'DART-014'),
         isTrue,
       );
+    });
+  });
+
+  group('FlutterSecureStorageEncryptionRule', () {
+    final FlutterSecureStorageEncryptionRule rule =
+        FlutterSecureStorageEncryptionRule();
+
+    test('flags encryptedSharedPreferences: false', () {
+      const String code = '''
+final storage = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: false),
+);
+''';
+      expect(
+        rule.analyze('lib/storage.dart', code).any((v) => v.ruleId == 'DART-018'),
+        isTrue,
+      );
+    });
+
+    test('flags multiline AndroidOptions', () {
+      const String code = '''
+const storage = FlutterSecureStorage(
+  aOptions: AndroidOptions(
+    encryptedSharedPreferences: false,
+  ),
+);
+''';
+      final findings = rule.analyze('lib/storage.dart', code);
+      expect(findings.where((v) => v.ruleId == 'DART-018'), isNotEmpty);
+    });
+
+    test('passes when encryption enabled', () {
+      const String code = '''
+final storage = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: true),
+);
+''';
+      expect(rule.analyze('lib/storage.dart', code), isEmpty);
+    });
+
+    test('passes default AndroidOptions', () {
+      const String code = '''
+final storage = FlutterSecureStorage(
+  aOptions: AndroidOptions(),
+);
+''';
+      expect(rule.analyze('lib/storage.dart', code), isEmpty);
+    });
+
+    test('passes unrelated false named args', () {
+      const String code = '''
+final storage = FlutterSecureStorage(
+  aOptions: AndroidOptions(resetOnError: false),
+);
+''';
+      expect(rule.analyze('lib/storage.dart', code), isEmpty);
     });
   });
 

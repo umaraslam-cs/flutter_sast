@@ -40,6 +40,27 @@ enum Severity {
     }
   }
 
+  /// Parses a config/CLI label such as `critical` or `HIGH`.
+  static Severity? tryParse(String? label) {
+    if (label == null || label.trim().isEmpty) {
+      return null;
+    }
+    switch (label.trim().toLowerCase()) {
+      case 'critical':
+        return Severity.critical;
+      case 'high':
+        return Severity.high;
+      case 'medium':
+        return Severity.medium;
+      case 'low':
+        return Severity.low;
+      case 'info':
+        return Severity.info;
+      default:
+        return null;
+    }
+  }
+
   /// Numeric weight used for scoring and ordering.
   ///
   /// Higher values indicate a more severe finding.

@@ -9,6 +9,11 @@ import '../base_rule.dart';
 
 /// `DART-004` family — flag weak cryptographic primitives and bad PRNG use.
 class WeakCryptoRule extends FilePatternRule {
+  WeakCryptoRule({this.onlySecurityContext = true});
+
+  /// When true (default), MD5/SHA-1 are only flagged near auth/crypto usage.
+  final bool onlySecurityContext;
+
   @override
   String get ruleId => 'DART-004';
 
@@ -51,7 +56,8 @@ class WeakCryptoRule extends FilePatternRule {
         final int windowEnd = (i + 5).clamp(0, lines.length - 1);
         final List<String> window =
             lines.sublist(windowStart, windowEnd + 1);
-        if (!SecretHeuristics.isSecurityCryptoContext(line, window)) {
+        if (onlySecurityContext &&
+            !SecretHeuristics.isSecurityCryptoContext(line, window)) {
           continue;
         }
         findings.add(Vulnerability(
@@ -79,7 +85,8 @@ class WeakCryptoRule extends FilePatternRule {
         final int windowEnd = (i + 5).clamp(0, lines.length - 1);
         final List<String> window =
             lines.sublist(windowStart, windowEnd + 1);
-        if (!SecretHeuristics.isSecurityCryptoContext(line, window)) {
+        if (onlySecurityContext &&
+            !SecretHeuristics.isSecurityCryptoContext(line, window)) {
           continue;
         }
         if (SecretHeuristics.isSha1BenignContext(line, window)) {

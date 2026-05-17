@@ -17,13 +17,3 @@ rules:
       - com.example.sdk.OAuthCallbackActivity
 profiles:
   default: security
-  security:
-    - DART-*
-    - AND-*
-    - IOS-*
-    - DEPS-002
-  privacy:
-    - IOS-006
-  web:
-    - WEB-*
-    - DART-010

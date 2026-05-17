@@ -93,6 +93,26 @@ void _registerScanOptions(ArgParser parser) {
       help: 'Analyze pubspec.yaml dependencies. Use --no-pubspec to skip.',
     )
     ..addFlag(
+      'env',
+      negatable: true,
+      defaultsTo: true,
+      help: 'Scan .env files under the project. Use --no-env to skip.',
+    )
+    ..addFlag(
+      'web',
+      negatable: true,
+      defaultsTo: true,
+      help:
+          'Include web/index.html when profile is web. Use --no-web to skip.',
+    )
+    ..addOption(
+      'profile',
+      help:
+          'Scan profile: security (default), privacy (iOS usage keys), or web '
+          '(WEB-*, DART-010). Overrides .flutter_sast.yml profiles.default.',
+      allowed: <String>['security', 'privacy', 'web'],
+    )
+    ..addFlag(
       'fail-on-high',
       negatable: false,
       defaultsTo: false,
@@ -175,6 +195,9 @@ class ScanCommand extends Command<int> {
     final bool includeAndroid = args['android'] as bool;
     final bool includeIos = args['ios'] as bool;
     final bool includePubspec = args['pubspec'] as bool;
+    final bool includeEnv = args['env'] as bool;
+    final bool includeWeb = args['web'] as bool;
+    final String? profileArg = args['profile'] as String?;
     final bool failOnHigh = args['fail-on-high'] as bool;
     final bool failOnAny = args['fail-on-any'] as bool;
     final bool quiet = args['quiet'] as bool;
@@ -201,8 +224,11 @@ class ScanCommand extends Command<int> {
       includeAndroid: includeAndroid,
       includeIos: includeIos,
       includePubspec: includePubspec,
+      includeEnv: includeEnv,
+      includeWeb: includeWeb,
       excludePaths: exclude,
       ruleIds: rules,
+      profile: profileArg ?? '',
     );
 
     final ScanReport report;

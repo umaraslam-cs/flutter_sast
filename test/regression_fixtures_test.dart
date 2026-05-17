@@ -5,6 +5,7 @@ import 'package:flutter_sast/src/analyzers/env_analyzer.dart';
 import 'package:flutter_sast/src/rules/dart/code_security_rule.dart';
 import 'package:flutter_sast/src/rules/dart/hardcoded_credentials_rule.dart';
 import 'package:flutter_sast/src/rules/dart/hardcoded_secrets_rule.dart';
+import 'package:flutter_sast/src/rules/dart/flutter_secure_storage_encryption_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_network_rule.dart';
 import 'package:flutter_sast/src/rules/dart/weak_crypto_rule.dart';
 import 'package:test/test.dart';
@@ -102,6 +103,15 @@ void main() {
           .where((v) => v.ruleId == 'AND-004')
           .any((v) => v.snippet?.contains('<application') ?? false),
       isFalse,
+    );
+  });
+
+  test('T09 default AndroidOptions — 0 × DART-018', () {
+    final code = fixture('secure_storage_snippet.dart');
+    expect(
+      FlutterSecureStorageEncryptionRule()
+          .analyze('lib/services/secure_storage.dart', code),
+      isEmpty,
     );
   });
 

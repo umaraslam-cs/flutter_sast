@@ -6,3 +6,9 @@ build/
 .cursor/
 *.iml
 .metadata
+
+# Local scan output (default CLI filenames)
+flutter_sast_report.json
+flutter_sast_report.html
+example/flutter_sast_report.json
+example/flutter_sast_report.html

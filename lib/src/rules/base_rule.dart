@@ -33,6 +33,15 @@ bool ruleIdMatchesFilter(String findingId, String filterId) {
   return !RegExp(r'^\d').hasMatch(suffix);
 }
 
+/// Whether [ruleId] matches a profile rule pattern such as `DART-*` or `DEPS-002`.
+bool ruleIdMatchesProfilePattern(String ruleId, String pattern) {
+  final String normalized = pattern.trim();
+  if (normalized.endsWith('*')) {
+    return ruleId.startsWith(normalized.substring(0, normalized.length - 1));
+  }
+  return ruleId == normalized || ruleIdMatchesFilter(ruleId, normalized);
+}
+
 /// Base contract for every static analysis rule.
 abstract class SastRule {
   String get ruleId;

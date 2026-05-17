@@ -5,6 +5,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import '../models/severity.dart';
+import '../models/vulnerability.dart';
+import '../rules/base_rule.dart';
+
 /// Project-level configuration loaded from `.flutter_sast.yml`.
 class SastConfig {
   final List<String> excludeGlobs;
@@ -12,6 +16,9 @@ class SastConfig {
   final List<String> exportedAllowlist;
   final String profile;
   final List<String> webviewAllowedHosts;
+
+  /// Rule ID patterns (`DART-*`, `AND-004`, …) for custom profile names only.
+  final Map<String, List<String>> profileRulePatterns;
 
   const SastConfig({
     this.excludeGlobs = const <String>[
@@ -23,7 +30,14 @@ class SastConfig {
     this.exportedAllowlist = const <String>[],
     this.profile = 'security',
     this.webviewAllowedHosts = const <String>[],
+    this.profileRulePatterns = const <String, List<String>>{},
   });
+
+  static const Set<String> builtInProfiles = <String>{
+    'security',
+    'privacy',
+    'web',
+  };
 
   static const String fileName = '.flutter_sast.yml';
 
@@ -91,10 +105,22 @@ class SastConfig {
     }
 
     String profile = 'security';
+    final Map<String, List<String>> profileRules = <String, List<String>>{};
     final YamlMap? profiles = doc['profiles'] as YamlMap?;
-    final dynamic defaultProfile = profiles?['default'];
-    if (defaultProfile is String) {
-      profile = defaultProfile;
+    if (profiles != null) {
+      final dynamic defaultProfile = profiles['default'];
+      if (defaultProfile is String) {
+        profile = defaultProfile;
+      }
+      for (final dynamic key in profiles.keys) {
+        if (key is! String || key == 'default') {
+          continue;
+        }
+        final dynamic value = profiles[key];
+        if (value is YamlList) {
+          profileRules[key] = value.whereType<String>().toList();
+        }
+      }
     }
 
     final List<String> webHosts = <String>[];
@@ -113,10 +139,54 @@ class SastConfig {
       exportedAllowlist: allowlist.toSet().toList(),
       profile: profile,
       webviewAllowedHosts: webHosts,
+      profileRulePatterns: profileRules,
     );
   }
 
   RuleConfig? rule(String ruleId) => rules[ruleId];
+
+  /// Config for [ruleId] or its base ID (e.g. `DART-004` for `DART-004b`).
+  RuleConfig? ruleConfigFor(String ruleId) {
+    final RuleConfig? direct = rule(ruleId);
+    if (direct != null) {
+      return direct;
+    }
+    final RegExpMatch? base =
+        RegExp(r'^([A-Z]+-\d+)').firstMatch(ruleId);
+    if (base != null) {
+      return rule(base.group(1)!);
+    }
+    return null;
+  }
+
+  /// Applies per-rule overrides from `.flutter_sast.yml`.
+  Vulnerability applyRuleConfig(Vulnerability finding) {
+    final RuleConfig? cfg = ruleConfigFor(finding.ruleId);
+    if (cfg == null) {
+      return finding;
+    }
+    Vulnerability result = finding;
+    if (cfg.severityOverride != null) {
+      final Severity? severity = Severity.tryParse(cfg.severityOverride);
+      if (severity != null) {
+        result = result.copyWith(
+          severity: severity,
+          scored: severity == Severity.info ? false : result.scored,
+        );
+      }
+    }
+    return result;
+  }
+
+  bool matchesCustomProfile(String profileName, String ruleId) {
+    final List<String>? patterns = profileRulePatterns[profileName];
+    if (patterns == null || patterns.isEmpty) {
+      return true;
+    }
+    return patterns.any(
+      (String pattern) => ruleIdMatchesProfilePattern(ruleId, pattern),
+    );
+  }
 
   /// Whether [relativePath] matches any configured exclude glob.
   bool isExcludedPath(String relativePath) {

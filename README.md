@@ -1,160 +1,75 @@
 # flutter_sast
 
-[![Dart SDK](https://img.shields.io/badge/sdk-%3E%3D2.17.0-brightgreen)](https://dart.dev/get-dart)
+[![Dart SDK](https://img.shields.io/badge/sdk-%3E%3D3.3.0-brightgreen)](https://dart.dev/get-dart)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**flutter_sast** is a static application security testing (SAST) and vulnerability assessment tool for **Flutter** and **Dart** projects. It scans Dart source, `AndroidManifest.xml`, `ios/Runner/Info.plist`, and `pubspec.yaml`, then prints a console summary and writes `flutter_sast_report.json` and `flutter_sast_report.html` in the project directory (one command, no extra flags).
+**flutter_sast** scans **Flutter** and **Dart** projects for common security issues: hardcoded secrets, weak crypto, insecure storage, Android/iOS misconfigurations, and dependency risks. One command writes a console summary plus `flutter_sast_report.json` and `flutter_sast_report.html`.
 
-The package targets **Dart SDK 2.17+**, which matches **Flutter 3.0.0** (Dart 2.17) and all newer stable Flutter releases whose Dart version stays below 4.0.
+Requires **Dart 3.3+** (Flutter **3.19+**).
 
-> This package is a **heuristic** scanner: it flags patterns that *often* indicate risk. Review each finding in context before changing code or treating results as a full penetration test.
+> Heuristic pattern matching — not a full AST or penetration test. Review findings in context.
 
-## Features
+## What it checks
 
-- **Dart rules** — hardcoded secrets, cleartext HTTP, permissive TLS callbacks, insecure local storage, weak crypto (security-context MD5/SHA-1, ECB, insecure `Random`, hardcoded IVs), SQL injection sinks, path traversal, WebView JS mode, clipboard misuse, and weak biometric options.
-- **Android** — debuggable release builds, backup, cleartext traffic, exported components, storage permissions, boot receiver, missing network security config.
-- **iOS** — App Transport Security relaxations, file sharing flags, sensitive usage-description keys.
-- **Dependencies** — risky packages, secure-storage recommendations, and certificate-pinning advisories.
-- **Outputs** — colored console, pretty JSON, dark-themed HTML (no external assets).
+- **Dart** — secrets, HTTP/TLS, `SharedPreferences` / `GetStorage`, `FlutterSecureStorage` encryption, weak crypto, SQLi sinks, path traversal, WebView, logging, query-param secrets, and more.
+- **Android** — `AndroidManifest.xml`, `strings.xml` (debuggable, backup, cleartext, exported components, permissions).
+- **iOS** — `Info.plist` (ATS, file sharing, usage descriptions with `--profile privacy`).
+- **Dependencies** — debug packages in prod deps; secure-storage / pinning advisories for Flutter apps.
+- **Config** — `.env` gitignore, release signing, ProGuard rules.
 
 ## Install
 
-### Global CLI (recommended)
-
 ```bash
 dart pub global activate flutter_sast
-```
-
-If `flutter_sast` is not recognized after installation, add Dart’s global bin directory to your `PATH`:
-
-```bash
-export PATH="$PATH:$HOME/.pub-cache/bin"
-```
-
-For permanent setup, add that line to your `~/.zshrc`, `~/.bashrc`, or shell profile.
-
-On Windows, add `%LOCALAPPDATA%\Pub\Cache\bin` to your user **Path** environment variable, then restart your terminal.
-
-Verify installation:
-
-```bash
+export PATH="$PATH:$HOME/.pub-cache/bin"   # add to ~/.zshrc to persist
 flutter_sast -v
-dart pub global list   # should include flutter_sast
 ```
 
-### As a dev dependency
-
-Add to your app’s `pubspec.yaml`:
+Or as a dev dependency:
 
 ```yaml
 dev_dependencies:
   flutter_sast: ^0.1.0
 ```
 
-Then:
-
 ```bash
 dart pub get
-dart run flutter_sast scan
-# or pass the project root explicitly:
-dart run flutter_sast scan /path/to/your/flutter_app
-```
-
-Arguments after `flutter_sast` are forwarded to the executable; use `--` if your shell needs it:
-
-```bash
-dart run flutter_sast -- scan .
+dart run flutter_sast .
 ```
 
 ## Quick start
 
-From your Flutter project root:
+From your project root (where `pubspec.yaml` lives):
 
 ```bash
-dart pub global activate flutter_sast
 flutter_sast .
 ```
 
-The terminal prints a clickable `file://` link to `flutter_sast_report.html` (Cmd/Ctrl+click in most terminals), or open that file in your browser.
+Same as `flutter_sast scan` or `flutter_sast scan /path/to/app`.
 
-## Usage
-
-From your **Flutter project root** (where `pubspec.yaml` lives):
+### CI
 
 ```bash
-flutter_sast
-# same as:
-flutter_sast scan
-flutter_sast .
+flutter_sast -q -f json              # JSON only, no console
+flutter_sast --fail-on-high          # exit 1 on HIGH/CRITICAL
+flutter_sast --fail-on-any           # exit 1 on any finding
 ```
-
-That prints a **console** summary and writes **`flutter_sast_report.json`** and **`flutter_sast_report.html`** in the project directory.
-
-Scan another tree:
-
-```bash
-flutter_sast /path/to/your/flutter_app
-# or: flutter_sast scan /path/to/your/flutter_app
-```
-
-Print the tool version (no subcommand):
-
-```bash
-flutter_sast -v
-flutter_sast --version
-```
-
-### Reports
-
-By default, every scan produces all three outputs (no extra flags).
-
-```bash
-flutter_sast               # console + flutter_sast_report.json + .html
-flutter_sast .             # same
-```
-
-Optional:
-
-```bash
-# CI: files only (no console); JSON/HTML still written
-flutter_sast -q
-
-# JSON only
-flutter_sast -f json
-
-# Both reports under ./security/ (directory)
-flutter_sast -o ./security/
-
-# Shared basename → security/audit.json and security/audit.html
-flutter_sast -o ./security/audit
-
-# Single HTML path; JSON lands in the same folder
-flutter_sast -o ./security/report.html
-```
-
-When stdout is not a terminal (piped or CI), the console summary is skipped automatically; use `-f console` to force it.
-
-### Scope and CI
-
-All flags below apply to the **`scan`** command (see `flutter_sast scan --help`).
 
 | Flag | Purpose |
 |------|---------|
-| `--no-dart` | Skip `.dart` file scanning |
-| `--no-android` | Skip `android/app/src/main/AndroidManifest.xml` |
-| `--no-ios` | Skip `ios/Runner/Info.plist` |
-| `--no-pubspec` | Skip `pubspec.yaml` dependency checks |
-| `-e`, `--exclude` | Extra path prefixes to skip (repeatable) |
-| `-r`, `--rules` | Run only given rule IDs, e.g. `-r DART-001` |
-| `-q`, `--quiet` | Skip console output (file reports only) |
-| `--fail-on-high` | Exit `1` if any **HIGH** or **CRITICAL** finding |
-| `--fail-on-any` | Exit `1` if any finding |
+| `--no-dart` / `--no-android` / `--no-ios` / `--no-pubspec` | Skip that area |
+| `--no-env` | Skip `.env` files |
+| `--profile privacy` | iOS usage-description checks |
+| `--profile web` | Web CSP + `dart:io` checks |
+| `-r DART-001` | Run specific rules only |
+| `-e build/` | Extra paths to skip |
+| `-o ./reports/` | Report output directory |
 
-Exit codes: `0` success, `1` policy failure (`--fail-on-*`) or usage error, `2` scan error (e.g. invalid project path).
+Exit codes: `0` ok, `1` policy/usage error, `2` scan error.
 
-### Project config (`.flutter_sast.yml`)
+### Optional config
 
-Optional file in the project root:
+Create `.flutter_sast.yml` in the project root only if you need tuning:
 
 ```yaml
 exclude:
@@ -163,71 +78,60 @@ exclude:
 rules:
   AND-004:
     exported_allowlist:
-      - com.example.sdk.OAuthCallbackActivity
+      - com.example.YourOAuthActivity
 profiles:
   default: security
 ```
 
-Inline suppressions: `// flutter_sast:ignore DART-004 md5-cache`
+Suppress a line: `// flutter_sast:ignore DART-004`
 
-**Profiles:** `security` (default, no IOS-006), `privacy` (IOS usage keys), `web` (WEB-*, DART-010).
+Advanced options (`severity`, `exclude_globs`, custom profiles) are documented in [CHANGELOG.md](CHANGELOG.md).
 
-### Rule catalog (40+ IDs)
+## Reports
 
-Heuristic pattern matching — not a full AST. Each finding includes **severity** and **confidence** (`LOW` / `MEDIUM` / `HIGH`).
+Default: console + `flutter_sast_report.json` + `flutter_sast_report.html` in the project directory.
 
-| Area | IDs | Examples |
-|------|-----|----------|
-| **Dart secrets** | `DART-001` | API keys, AWS, Firebase (INFO), AppsFlyer/RevenueCat-style SDK keys (INFO), tokens, private keys |
-| **Dart network** | `DART-002`–`002d` | Cleartext HTTP, bad cert callbacks, hardcoded proxy |
-| **Dart storage** | `DART-003`, `003b`, `003d` | Sensitive `SharedPreferences` / `GetStorage`, credential logging |
-| **Dart crypto** | `DART-004`–`004e` | MD5, SHA-1, insecure `Random`, ECB, hardcoded IV |
-| **Dart code** | `DART-005`–`005f`, `012`, `014`, `017` | SQLi, path traversal, WebView JS, clipboard, biometrics, query-param secrets, exceptions, TextField IME |
-| **Android** | `AND-001`–`015` | Debuggable, backup/scoping, cleartext, exported components, task hijacking, Maps key, `strings.xml` tokens |
-| **iOS** | `IOS-001`–`006` | ATS bypass, file sharing; weak usage strings (`privacy` profile) |
-| **Dependencies** | `DEPS-002`–`003`, `006` | Secure-storage / pinning advisories; debug packages in prod deps |
-| **Build config** | `CONFIG-001`, `003`, `004` | Env gitignore, release debug keystore, ProGuard wildcards |
+```bash
+flutter_sast -f json -o ./security/   # JSON under ./security/
+```
 
-**`riskLevel`:** `CLEAN`, `ADVISORY` (deps-only hints), `LOW` … `CRITICAL`.
+**Score** (0–100) is a hygiene hint from finding severity × confidence — not exploitability. `INFO` and dependency **Recommendation** rows do not lower the score.
 
-**Score** = `100 − Σ(severityWeight × confidenceMultiplier)` for scored findings only
-(weights: CRITICAL 25, HIGH 10, MEDIUM 3, LOW 1; INFO and `Recommendation` excluded).
-Not exploitability — a clean FP profile with many MEDIUM code-quality findings can still score low.
+## Rule IDs (summary)
 
-Pure Dart CLIs (no `flutter` SDK in `pubspec.yaml`) do not get `DEPS-002` / `DEPS-003`.
+| Area | IDs |
+|------|-----|
+| Dart | `DART-001`–`018` (secrets, network, storage, crypto, code quality) |
+| Android | `AND-001`–`015` |
+| iOS | `IOS-001`–`006` |
+| Dependencies | `DEPS-002`, `003`, `006` |
+| Build | `CONFIG-001`, `003`, `004` |
+| Web (`--profile web`) | `WEB-001`, `002`, `DART-010` |
 
-## Programmatic API
+Pure Dart CLIs (no `flutter` in `pubspec.yaml`) skip `DEPS-002` / `DEPS-003` advisories.
+
+## API
 
 ```dart
 import 'package:flutter_sast/flutter_sast.dart';
 
-Future<void> main() async {
-  const options = ScanOptions();
-  final report = await FlutterSastScanner(options: options).scan('/path/to/app');
-
-  ConsoleReporter().report(report);
-  await JsonReporter().writeReport(report, 'report.json');
-  await HtmlReporter().writeReport(report, 'report.html');
-}
+final report = await FlutterSastScanner().scan('/path/to/app');
+ConsoleReporter().report(report);
 ```
 
-See [`example/main.dart`](example/main.dart) for a runnable sample (`cd example && dart pub get && dart run`).
+See [`example/main.dart`](example/main.dart).
 
 ## Development
 
 ```bash
-dart pub get
-dart analyze
-dart test
-dart pub publish --dry-run   # before publishing
+dart pub get && dart analyze && dart test
+dart pub publish --dry-run
 ```
 
 ## Links
 
-- **Repository:** [github.com/umaraslam-cs/flutter_sast](https://github.com/umaraslam-cs/flutter_sast)
-- **Issues:** [github.com/umaraslam-cs/flutter_sast/issues](https://github.com/umaraslam-cs/flutter_sast/issues)
-- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
-
-## License
+- [Repository](https://github.com/umaraslam-cs/flutter_sast)
+- [Issues](https://github.com/umaraslam-cs/flutter_sast/issues)
+- [Changelog](CHANGELOG.md)
 
 MIT — see [LICENSE](LICENSE).

@@ -19,6 +19,7 @@ import 'rules/base_rule.dart';
 import 'rules/dart/code_security_rule.dart';
 import 'rules/dart/credentials_in_exception_rule.dart';
 import 'rules/dart/dart_io_web_rule.dart';
+import 'rules/dart/flutter_secure_storage_encryption_rule.dart';
 import 'rules/dart/hardcoded_credentials_rule.dart';
 import 'rules/dart/hardcoded_secrets_rule.dart';
 import 'rules/dart/insecure_network_rule.dart';
@@ -133,8 +134,11 @@ class FlutterSastScanner {
           final List<Vulnerability> ruleFindings =
               rule.analyze(relative, content);
           final List<Vulnerability> filtered = _applyProfile(
-            _applySuppressions(ruleFindings, content),
+            _applySuppressions(ruleFindings, content)
+                .map(config.applyRuleConfig)
+                .toList(),
             profile,
+            config,
           );
           if (options.ruleIds.isEmpty) {
             findings.addAll(filtered);
@@ -169,7 +173,12 @@ class FlutterSastScanner {
         } on FileSystemException {
           continue;
         }
-        _addFiltered(findings, EnvAnalyzer().analyze(relative, content), profile);
+        _addFiltered(
+          findings,
+          EnvAnalyzer().analyze(relative, content),
+          profile,
+          config,
+        );
       }
     }
 
@@ -184,6 +193,7 @@ class FlutterSastScanner {
             exportedAllowlist: config.exportedAllowlist,
           ).analyze(await manifest.readAsString()),
           profile,
+          config,
         );
       }
 
@@ -205,6 +215,7 @@ class FlutterSastScanner {
               await entity.readAsString(),
             ),
             profile,
+            config,
           );
         }
       }
@@ -220,6 +231,7 @@ class FlutterSastScanner {
           IosPlistAnalyzer(includePrivacyKeys: includePrivacy)
               .analyze(await plist.readAsString()),
           profile,
+          config,
         );
       }
     }
@@ -235,6 +247,7 @@ class FlutterSastScanner {
             libSourceAggregate: libAggregate.toString(),
           ),
           profile,
+          config,
         );
       }
     }
@@ -246,11 +259,17 @@ class FlutterSastScanner {
           findings,
           WebIndexAnalyzer().analyze(await index.readAsString()),
           profile,
+          config,
         );
       }
     }
 
-    _addFiltered(findings, ConfigAnalyzer().analyze(project.path), profile);
+    _addFiltered(
+      findings,
+      ConfigAnalyzer().analyze(project.path),
+      profile,
+      config,
+    );
 
     _dedupeFindings(findings);
 
@@ -281,6 +300,7 @@ class FlutterSastScanner {
       InsecureNetworkRule(),
       TlsPinningRule(),
       InsecureStorageRule(),
+      FlutterSecureStorageEncryptionRule(),
       SensitiveLoggingRule(),
       WeakCryptoRule(),
       CodeSecurityRule(),
@@ -299,6 +319,7 @@ class FlutterSastScanner {
   List<Vulnerability> _applyProfile(
     List<Vulnerability> incoming,
     String profile,
+    SastConfig config,
   ) {
     if (profile == 'privacy') {
       return incoming
@@ -311,9 +332,17 @@ class FlutterSastScanner {
               v.ruleId.startsWith('WEB-') || v.ruleId == 'DART-010')
           .toList();
     }
-    return incoming
-        .where((Vulnerability v) => v.ruleId != 'IOS-006')
-        .toList();
+    if (profile == 'security') {
+      return incoming
+          .where((Vulnerability v) => v.ruleId != 'IOS-006')
+          .toList();
+    }
+    if (!SastConfig.builtInProfiles.contains(profile)) {
+      return incoming
+          .where((Vulnerability v) => config.matchesCustomProfile(profile, v.ruleId))
+          .toList();
+    }
+    return incoming;
   }
 
   List<Vulnerability> _applySuppressions(
@@ -349,8 +378,12 @@ class FlutterSastScanner {
     List<Vulnerability> sink,
     List<Vulnerability> incoming,
     String profile,
+    SastConfig config,
   ) {
-    final List<Vulnerability> filtered = _applyProfile(incoming, profile);
+    final List<Vulnerability> configured =
+        incoming.map(config.applyRuleConfig).toList();
+    final List<Vulnerability> filtered =
+        _applyProfile(configured, profile, config);
     if (options.ruleIds.isEmpty) {
       sink.addAll(filtered);
     } else {

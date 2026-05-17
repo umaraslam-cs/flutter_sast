@@ -1,5 +1,5 @@
 name: flutter_sast
-version: 0.2.0
+version: 0.1.0
 description: >-
   SAST and vulnerability assessment CLI for Flutter/Dart. Detects hardcoded
   secrets, insecure storage, weak crypto, AndroidManifest and iOS plist

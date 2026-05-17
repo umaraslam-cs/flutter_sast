@@ -93,6 +93,76 @@ abstract final class LineContext {
     ).hasMatch(v);
   }
 
+  /// Route paths (`/edit-password`) and kebab-case slugs are not credentials.
+  static bool isRoutePathValue(String value) {
+    final String v = value.trim();
+    if (v.startsWith('/') || v.startsWith('#/')) {
+      return true;
+    }
+    return RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)+$').hasMatch(v);
+  }
+
+  /// `editPassword = '/edit-password'` — identifier contains "password" but value is a route.
+  static bool isNavigationRouteConstantLine(String line) {
+    if (!RegExp(
+      r'''=\s*["'][^"']+["']\s*;?\s*$''',
+    ).hasMatch(line.trim())) {
+      return false;
+    }
+    final RegExpMatch? valueMatch = RegExp(
+      r'''=\s*["']([^"']+)["']''',
+    ).firstMatch(line);
+    final String? value = valueMatch?.group(1);
+    if (value == null || !isRoutePathValue(value)) {
+      return false;
+    }
+    return RegExp(
+      r'\b(?:route|path|Route|Path)\b|Routes\.|GoRoute|static\s+const\s+String',
+      caseSensitive: false,
+    ).hasMatch(line);
+  }
+
+  /// `File('${tempDir.path}/${K.logFilename}')` — OS dir + app constant, not user input.
+  static bool isSafeLocalFilePathLine(String line) {
+    final RegExpMatch? fileMatch =
+        RegExp(r'File\s*\(\s*([^)]+)\)').firstMatch(line);
+    if (fileMatch == null) {
+      return false;
+    }
+    final String inner = fileMatch.group(1)!.trim();
+    if (!inner.contains(r'$')) {
+      return false;
+    }
+    final Iterable<RegExpMatch> interpolations =
+        RegExp(r'\$\{([^}]+)\}').allMatches(inner);
+    if (interpolations.isEmpty) {
+      return false;
+    }
+    for (final RegExpMatch m in interpolations) {
+      final String expr = m.group(1)!.trim();
+      if (RegExp(r'^[A-Za-z_]\w*Dir\.path$').hasMatch(expr)) {
+        continue;
+      }
+      if (RegExp(r'^[A-Z]\w*\.\w+$').hasMatch(expr)) {
+        continue;
+      }
+      if (RegExp(r'^[A-Za-z_][\w.]*\.path$').hasMatch(expr)) {
+        continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  /// Public OAuth client IDs in FlutterFire output are expected in client apps.
+  static bool isFirebaseClientConfigLine(String line) {
+    return RegExp(
+      r'FirebaseOptions|iosClientId|androidClientId|authDomain|'
+      r'messagingSenderId|measurementId',
+      caseSensitive: false,
+    ).hasMatch(line);
+  }
+
   static LineContextKind classify(String line) {
     if (isTestMockLine(line)) {
       return LineContextKind.testMock;

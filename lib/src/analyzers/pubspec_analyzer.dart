@@ -25,12 +25,8 @@ class PubspecAnalyzer {
   static const String _category = 'Dependencies';
 
   static const List<_RiskyDep> _risky = <_RiskyDep>[
-    _RiskyDep(
-      'http',
-      'The http package makes cleartext HTTP easy to use accidentally; '
-          'ensure all request URLs use HTTPS and pin to the latest version.',
-      Severity.low,
-    ),
+    // Cleartext HTTP is reported by [InsecureNetworkRule] when `http://` appears
+    // in Dart sources; listing `http` here only duplicates that signal.
     _RiskyDep(
       'dio',
       'Dio certificate validation and interceptor configuration can be '

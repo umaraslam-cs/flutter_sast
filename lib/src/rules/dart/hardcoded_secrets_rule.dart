@@ -94,8 +94,8 @@ class HardcodedSecretsRule extends FilePatternRule {
       name: 'Google OAuth Client ID',
       regex: RegExp(
           r'[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com'),
-      severity: Severity.medium,
-      confidence: FindingConfidence.medium,
+      severity: Severity.info,
+      confidence: FindingConfidence.low,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
@@ -108,7 +108,7 @@ class HardcodedSecretsRule extends FilePatternRule {
     _SecretPattern(
       name: 'Hardcoded Password',
       regex: RegExp(
-        r'''(?:password|passwd|pwd)\s*[=:]\s*["'](?!.*\$\{)([^"']{6,})["']''',
+        r'''(?<![A-Za-z0-9_])(?:password|passwd|pwd)\s*[=:]\s*["'](?!.*\$\{)([^"']{6,})["']''',
         caseSensitive: false,
       ),
       severity: Severity.high,
@@ -186,6 +186,9 @@ class HardcodedSecretsRule extends FilePatternRule {
         if (_isPlaceholderMatch(pattern, match)) {
           continue;
         }
+        if (_shouldSkipPattern(pattern, filePath, line, match)) {
+          continue;
+        }
 
         findings.add(Vulnerability(
           ruleId: ruleId,
@@ -222,6 +225,30 @@ class HardcodedSecretsRule extends FilePatternRule {
     return false;
   }
 
+  bool _shouldSkipPattern(
+    _SecretPattern pattern,
+    String filePath,
+    String line,
+    Match match,
+  ) {
+    if (pattern.name == 'Hardcoded Password') {
+      if (LineContext.isNavigationRouteConstantLine(line)) {
+        return true;
+      }
+      final String? captured = match.groupCount >= 1 ? match.group(1) : null;
+      if (captured != null && LineContext.isRoutePathValue(captured)) {
+        return true;
+      }
+    }
+    if (pattern.name == 'Google OAuth Client ID') {
+      if (filePath.endsWith('firebase_options.dart') ||
+          LineContext.isFirebaseClientConfigLine(line)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   String _descriptionFor(_SecretPattern pattern) {
     switch (pattern.name) {
       case 'Firebase API Key':
@@ -236,6 +263,10 @@ class HardcodedSecretsRule extends FilePatternRule {
         return 'A RevenueCat public SDK key is hardcoded. Public store keys are '
             'expected in clients; enforce purchases and entitlements on RevenueCat '
             'or your backend—never trust local prefs alone for authorization.';
+      case 'Google OAuth Client ID':
+        return 'A Google OAuth client ID is present. Client IDs are public '
+            'identifiers in mobile apps; restrict with bundle IDs, redirect URIs, '
+            'and Google Cloud console settings—not by hiding them in source.';
       default:
         return 'A ${pattern.name} appears to be hardcoded in this file. '
             'Hardcoded credentials can be extracted from compiled binaries '
@@ -254,6 +285,9 @@ class HardcodedSecretsRule extends FilePatternRule {
       case 'RevenueCat API Key':
         return 'Verify entitlements server-side or via RevenueCat; do not use '
             'local storage flags as the sole paywall gate.';
+      case 'Google OAuth Client ID':
+        return 'Confirm OAuth client restrictions in Google Cloud Console; '
+            'use App Check and Firebase Auth rules for API access control.';
       default:
         return 'Move the secret to a secure runtime store (environment '
             'variable, encrypted secret manager, or a backend) and rotate '

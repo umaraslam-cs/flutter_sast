@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **False-positive guards** for route constants (`editPassword = '/edit-password'`),
+  safe local log paths (`tempDir.path` + `K.logFilename`), and FlutterFire OAuth
+  client IDs in `firebase_options.dart`.
 - **Line context layer** (`LineContext`) to cut false positives: test/mock lines,
   UI strings, benign prefs keys, dev/staging HTTP hosts, and safer logging rules.
 - **`FindingConfidence`** on every finding (`LOW` / `MEDIUM` / `HIGH`) in console,
@@ -23,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **DART-001 Hardcoded Password**: word-boundary before `password` so identifiers
+  like `editPassword` are not matched; route path string values are ignored.
+- **DART-001 Google OAuth Client ID**: skipped in `firebase_options.dart`; downgraded
+  to INFO when reported elsewhere.
+- **DART-005b**: skips OS temp/cache dir + app constant path joins; adds confidence.
+- **DEPS-001**: no longer lists `http` when cleartext is already covered by network rules.
 - **Hygiene score** uses capped deductions (no more automatic 0/100 on noisy apps).
 - **`riskLevel` `ADVISORY`** when only `DEPS-*` findings and nothing HIGH+.
 - **Firebase client keys**: `INFO` severity, low confidence, client-key guidance.

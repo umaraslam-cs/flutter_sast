@@ -1,5 +1,7 @@
 // lib/src/rules/dart/code_security_rule.dart
 
+import '../../analysis/line_context.dart';
+import '../../models/finding_confidence.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
 import '../base_rule.dart';
@@ -67,7 +69,9 @@ class CodeSecurityRule extends FilePatternRule {
         ));
       }
 
-      if (_pathTraversal.hasMatch(line) && !line.contains('.join(')) {
+      if (_pathTraversal.hasMatch(line) &&
+          !line.contains('.join(') &&
+          !LineContext.isSafeLocalFilePathLine(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-005b',
           title: 'Potential path traversal',
@@ -81,6 +85,7 @@ class CodeSecurityRule extends FilePatternRule {
           filePath: filePath,
           category: category,
           severity: Severity.high,
+          confidence: FindingConfidence.medium,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-22',

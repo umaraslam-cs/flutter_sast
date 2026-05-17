@@ -65,5 +65,19 @@ void main() {
       expect(LineContext.isDevOrLocalHost('api.staging.example'), isTrue);
       expect(LineContext.isDevOrLocalHost('api.production.example'), isFalse);
     });
+
+    test('isRoutePathValue recognises slash routes', () {
+      expect(LineContext.isRoutePathValue('/edit-password'), isTrue);
+      expect(LineContext.isRoutePathValue('sup3rs3cret123'), isFalse);
+    });
+
+    test('isSafeLocalFilePathLine allows tempDir + K constant', () {
+      expect(
+        LineContext.isSafeLocalFilePathLine(
+          "final File logFile = File('\${tempDir.path}/\${K.logFilename}');",
+        ),
+        isTrue,
+      );
+    });
   });
 }

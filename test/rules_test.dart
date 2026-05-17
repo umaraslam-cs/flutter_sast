@@ -51,6 +51,24 @@ void main() {
       expect(results, isNotEmpty);
     });
 
+    test('does not flag navigation route named editPassword', () {
+      const String code =
+          "  static const String editPassword = '/edit-password';";
+      final List<Vulnerability> results =
+          rule.analyze('lib/common/routes.dart', code);
+      expect(results, isEmpty);
+    });
+
+    test('skips Google OAuth client ID in firebase_options.dart', () {
+      const String code = '''
+    iosClientId:
+        '832520175604-hkjs4gmd1tq3oq1cb8gie84csj6mk9sa.apps.googleusercontent.com',
+''';
+      final List<Vulnerability> results =
+          rule.analyze('lib/firebase_options.dart', code);
+      expect(results, isEmpty);
+    });
+
     test('detects AWS access key as CRITICAL', () {
       const String code = "const awsKey = 'AKIAIOSFODNN7EXAMPLE';";
       final List<Vulnerability> results =
@@ -181,6 +199,22 @@ await prefs.setString(_keyLastSessionDate, DateTime.now().toIso8601String());
       final List<Vulnerability> results =
           rule.analyze('lib/flutter_flow/uploaded_file.dart', code);
       expect(results.where((v) => v.ruleId == 'DART-005b'), isEmpty);
+    });
+
+    test('does not flag temp dir + app constant log path', () {
+      const String code =
+          "final File logFile = File('\${tempDir.path}/\${K.logFilename}');";
+      final List<Vulnerability> results =
+          rule.analyze('lib/common/log/log_util.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-005b'), isEmpty);
+    });
+
+    test('still flags user-controlled file name in File path', () {
+      const String code =
+          "final File f = File('\${baseDir.path}/\${userFileName}');";
+      final List<Vulnerability> results =
+          rule.analyze('lib/upload.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-005b'), isNotEmpty);
     });
   });
 

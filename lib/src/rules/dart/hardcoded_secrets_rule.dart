@@ -138,7 +138,7 @@ class HardcodedSecretsRule extends FilePatternRule {
 
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      if (line.trim().isEmpty) continue;
+      if (line.trim().isEmpty || shouldSkipLineForAnalysis(line)) continue;
 
       for (final _SecretPattern pattern in _patterns) {
         final Match? match = pattern.regex.firstMatch(line);

@@ -37,3 +37,7 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 /build/
 /coverage/
+
+# Scan output (CLI default filenames)
+/flutter_sast_report.json
+/flutter_sast_report.html

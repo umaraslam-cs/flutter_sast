@@ -6,12 +6,23 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
 import 'package:flutter_sast/flutter_sast.dart';
-
-const String _version = '0.1.0';
+import 'package:flutter_sast/src/version.dart';
 
 const String _ansiBoldPurple = '\x1B[1;35m';
 const String _ansiRed = '\x1B[31m';
 const String _ansiReset = '\x1B[0m';
+
+void _writeStderr(String message, {bool errorPrefix = false}) {
+  if (stderr.hasTerminal) {
+    if (errorPrefix) {
+      stderr.writeln('${_ansiRed}Error:$_ansiReset $message');
+    } else {
+      stderr.writeln('$_ansiRed$message$_ansiReset');
+    }
+  } else {
+    stderr.writeln(errorPrefix ? 'Error: $message' : message);
+  }
+}
 
 void _registerScanOptions(ArgParser parser) {
   parser
@@ -35,6 +46,7 @@ void _registerScanOptions(ArgParser parser) {
         '.dart_tool/',
         '.pub-cache/',
         'test/',
+        'example/',
       ],
       help: 'Path prefixes (relative to project root) to skip.',
     )
@@ -138,9 +150,13 @@ class ScanCommand extends Command<int> {
     final bool failOnHigh = args['fail-on-high'] as bool;
     final bool failOnAny = args['fail-on-any'] as bool;
 
-    stdout.writeln(
-      '${_ansiBoldPurple}flutter_sast  Scanning $projectPath ...$_ansiReset',
-    );
+    if (stdout.hasTerminal) {
+      stdout.writeln(
+        '${_ansiBoldPurple}flutter_sast  Scanning $projectPath ...$_ansiReset',
+      );
+    } else {
+      stdout.writeln('flutter_sast  Scanning $projectPath ...');
+    }
 
     final ScanOptions options = ScanOptions(
       includeDart: includeDart,
@@ -155,7 +171,7 @@ class ScanCommand extends Command<int> {
     try {
       report = await FlutterSastScanner(options: options).scan(projectPath);
     } on Object catch (e) {
-      stderr.writeln('${_ansiRed}Scan failed:$_ansiReset $e');
+      _writeStderr('Scan failed: $e', errorPrefix: true);
       return 2;
     }
 
@@ -197,7 +213,7 @@ class ScanCommand extends Command<int> {
 Future<void> main(List<String> arguments) async {
   if (arguments.length == 1 &&
       (arguments.first == '-v' || arguments.first == '--version')) {
-    stdout.writeln('flutter_sast $_version');
+    stdout.writeln('flutter_sast $packageVersion');
     exit(0);
   }
 
@@ -206,7 +222,7 @@ Future<void> main(List<String> arguments) async {
     final int exitCode = await runner.run(arguments) ?? 0;
     exit(exitCode);
   } on UsageException catch (e) {
-    stderr.writeln('${_ansiRed}Error:$_ansiReset ${e.message}');
+    _writeStderr(e.message, errorPrefix: true);
     stderr.writeln(e.usage);
     exit(1);
   }

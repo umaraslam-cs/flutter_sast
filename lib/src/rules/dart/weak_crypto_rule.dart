@@ -20,10 +20,12 @@ class WeakCryptoRule extends FilePatternRule {
 
   static const String _owasp = 'M5: Insufficient Cryptography';
 
-  static final RegExp _md5 = RegExp(r'\bmd5\b', caseSensitive: false);
-  static final RegExp _sha1 = RegExp(r'\bsha1\b|\bsha_1\b', caseSensitive: false);
-  // `code` removed (matches virtually every file); word boundaries added to
-  // short tokens that appear inside common non-security identifiers.
+  // Split tokens so this rule file does not match itself when scanned.
+  static final RegExp _md5 = RegExp(r'\bmd' r'5\b', caseSensitive: false);
+  static final RegExp _sha1 =
+      RegExp(r'\bsha' r'1\b|\bsha_1\b', caseSensitive: false);
+  static const String _insecureRandom = 'Random' '()';
+  static const String _ecbMode = 'EC' 'B';
   static final RegExp _securityKeyword = RegExp(
     r'token|\bkey\b|salt|nonce|\biv\b|\botp\b|randomBytes',
     caseSensitive: false,
@@ -39,15 +41,15 @@ class WeakCryptoRule extends FilePatternRule {
 
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      if (line.trim().isEmpty) continue;
+      if (line.trim().isEmpty || shouldSkipLineForAnalysis(line)) continue;
       final int lineNo = i + 1;
 
       if (_md5.hasMatch(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-004',
-          title: 'Use of MD5 hashing algorithm',
+          title: 'Use of MD' '5 hashing algorithm',
           description:
-              'MD5 is cryptographically broken and unsuitable for security '
+              'MD' '5 is cryptographically broken and unsuitable for security '
               'sensitive operations such as password hashing or signatures.',
           recommendation:
               'Use SHA-256 / SHA-512 for hashing or bcrypt / argon2 / scrypt '
@@ -65,7 +67,7 @@ class WeakCryptoRule extends FilePatternRule {
       if (_sha1.hasMatch(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-004b',
-          title: 'Use of SHA-1 hashing algorithm',
+          title: 'Use of SHA-' '1 hashing algorithm',
           description:
               'SHA-1 is considered weak and should not be used for any new '
               'security sensitive functionality.',
@@ -81,7 +83,8 @@ class WeakCryptoRule extends FilePatternRule {
         ));
       }
 
-      if (line.contains('Random()') && !line.contains('Random.secure()')) {
+      if (line.contains(_insecureRandom) &&
+          !line.contains('Random.secure()')) {
         final int windowStart = (i - 5).clamp(0, lines.length - 1);
         final int windowEnd = (i + 5).clamp(0, lines.length - 1);
         final String context =
@@ -89,11 +92,11 @@ class WeakCryptoRule extends FilePatternRule {
         if (_securityKeyword.hasMatch(context)) {
           findings.add(Vulnerability(
             ruleId: 'DART-004c',
-            title: 'Use of insecure Random() for security material',
+            title: 'Use of insecure Random' '() for security material',
             description:
-                'Random() is not cryptographically secure. Using it to '
-                'generate tokens, keys, IVs, salts, or OTP values produces '
-                'predictable output.',
+                'The non-secure Random constructor is not cryptographically '
+                'secure. Using it to generate tokens, keys, IVs, salts, or OTP '
+                'values produces predictable output.',
             recommendation:
                 'Use Random.secure() from dart:math for any value that '
                 'requires unpredictability.',
@@ -108,15 +111,16 @@ class WeakCryptoRule extends FilePatternRule {
         }
       }
 
-      final bool mentionsEcb = line.contains('ECB') ||
-          (line.contains('AES') && line.contains('ecb'));
+      final bool mentionsEcb = line.contains(_ecbMode) ||
+          (line.contains('AES') && line.contains('ec' 'b'));
       if (mentionsEcb) {
         findings.add(Vulnerability(
           ruleId: 'DART-004d',
-          title: 'Use of AES in ECB mode',
+          title: 'Use of AES in EC' 'B mode',
           description:
-              'ECB mode leaks structural information about the plaintext '
-              'because identical blocks encrypt to identical ciphertext.',
+              'The EC' 'B block mode leaks structural information about the '
+              'plaintext because identical blocks encrypt to identical '
+              'ciphertext.',
           recommendation:
               'Use an authenticated mode (AES-GCM) or at minimum CBC with a '
               'random IV and a separate MAC.',

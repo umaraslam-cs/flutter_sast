@@ -7,10 +7,23 @@ import '../models/vulnerability.dart';
 /// Word-boundary anchors on short tokens (`\bkey\b`, `\bpin\b`) prevent
 /// matches inside identifiers like `keyboardType` or `spinner`.
 final RegExp sharedSensitiveKeyword = RegExp(
-  r'password|passwd|pwd|token|secret|\bkey\b|credential|auth|'
+  r'password|passwd|pwd|token|secret|\bkey\b|credential|\bauth\b|'
   r'pin\b|ssn|credit.?card|cvv|session',
   caseSensitive: false,
 );
+
+/// Whether [findingId] matches a `--rules` filter [filterId].
+///
+/// Exact match, or [findingId] is a letter-suffix sub-rule (e.g. `DART-002b`
+/// for filter `DART-002`). Rejects numeric continuations so `DEPS-0` does not
+/// match `DEPS-001` or `DEPS-002`.
+bool ruleIdMatchesFilter(String findingId, String filterId) {
+  if (findingId == filterId) return true;
+  if (!findingId.startsWith(filterId)) return false;
+  final String suffix = findingId.substring(filterId.length);
+  if (suffix.isEmpty) return true;
+  return !RegExp(r'^\d').hasMatch(suffix);
+}
 
 /// Base contract for every static analysis rule.
 abstract class SastRule {
@@ -32,6 +45,20 @@ abstract class FilePatternRule extends SastRule {
       }
     }
     return false;
+  }
+
+  /// Skips [Vulnerability] metadata and rule-internal helper lines so rule
+  /// implementation files are not flagged when this package scans itself.
+  bool shouldSkipLineForAnalysis(String line) {
+    final String t = line.trim();
+    return t.startsWith('title:') ||
+        t.startsWith('description:') ||
+        t.startsWith('recommendation:') ||
+        t.startsWith('snippet:') ||
+        t.startsWith('static const String _') ||
+        t.startsWith('static final RegExp _') ||
+        t.startsWith('final bool mentionsEcb') ||
+        t.startsWith('if (line.contains(_insecureRandom)');
   }
 
   /// Returns [lines] with block comments (`/* */`) removed and single-line

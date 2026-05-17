@@ -28,11 +28,8 @@ class InsecureStorageRule extends FilePatternRule {
   );
 
   static final RegExp _getStorageWrite = RegExp(
-    r'(?:GetStorage|box|_box)\s*(?:\(\s*\))?\.write\s*\(',
+    r'\bGetStorage\b\s*(?:\(\s*\))?\.write\s*\(',
   );
-
-  static final RegExp _hivePut = RegExp(r'Hive\.box[^\.]*\.put\s*\(');
-  static final RegExp _genericHivePut = RegExp(r'\.put\s*\(');
 
   static final RegExp _logCall = RegExp(r'(?:print|debugPrint|log)\s*\(');
 
@@ -40,12 +37,10 @@ class InsecureStorageRule extends FilePatternRule {
   List<Vulnerability> analyze(String filePath, String content) {
     final List<Vulnerability> findings = <Vulnerability>[];
     final List<String> lines = stripComments(content.split('\n'));
-    final bool hasHiveEncryption =
-        content.contains('HiveAesCipher') || content.contains('encryptionCipher');
 
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      if (line.trim().isEmpty) continue;
+      if (line.trim().isEmpty || shouldSkipLineForAnalysis(line)) continue;
       final int lineNo = i + 1;
       final bool hasSensitive = _sensitiveKeyword.hasMatch(line);
       if (!hasSensitive) {
@@ -83,30 +78,6 @@ class InsecureStorageRule extends FilePatternRule {
               'system access.',
           recommendation:
               'Use flutter_secure_storage for sensitive values.',
-          filePath: filePath,
-          category: category,
-          severity: Severity.high,
-          lineNumber: lineNo,
-          snippet: line.trim(),
-          cwe: 'CWE-312',
-          owasp: _owasp,
-        ));
-      }
-
-      final bool isHiveCall =
-          _hivePut.hasMatch(line) || (line.contains('Hive.box') &&
-              _genericHivePut.hasMatch(line));
-      if (isHiveCall && !hasHiveEncryption) {
-        findings.add(Vulnerability(
-          ruleId: 'DART-003c',
-          title: 'Hive box used without encryption',
-          description:
-              'Hive is being used to persist what looks like sensitive data '
-              'but no HiveAesCipher / encryptionCipher is configured in this '
-              'file. Hive data is stored as plaintext by default.',
-          recommendation:
-              'Open the box with `encryptionCipher: HiveAesCipher(key)` and '
-              'store the key in flutter_secure_storage.',
           filePath: filePath,
           category: category,
           severity: Severity.high,

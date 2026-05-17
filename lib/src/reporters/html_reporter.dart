@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import '../models/report.dart';
+import '../version.dart';
 import '../models/severity.dart';
 import '../models/vulnerability.dart';
 
@@ -348,7 +349,7 @@ $body
   String _footer() {
     return '''
 <footer class="report">
-  flutter_sast v0.1.0 &middot;
+  flutter_sast v$packageVersion &middot;
   <a href="https://github.com/umaraslam-cs/flutter_sast">github.com/umaraslam-cs/flutter_sast</a>
 </footer>
 ''';

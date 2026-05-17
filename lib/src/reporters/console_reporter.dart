@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import '../models/report.dart';
+import '../version.dart';
 import '../models/severity.dart';
 import '../models/vulnerability.dart';
 
@@ -90,7 +91,7 @@ class ConsoleReporter {
     }
 
     out.writeln(_c(_sep, _magenta));
-    out.writeln('${_dim}flutter_sast v0.1.0$_reset');
+    out.writeln('${_dim}flutter_sast v$packageVersion$_reset');
     out.writeln('${_dim}https://github.com/umaraslam-cs/flutter_sast$_reset');
     out.writeln(_c(_sep, _magenta));
 

@@ -14,7 +14,7 @@ The package targets **Dart SDK 2.17+**, which matches **Flutter 3.0.0** (Dart 2.
 - **Dart rules** — hardcoded secrets, cleartext HTTP, permissive TLS callbacks, insecure local storage, weak crypto (MD5, SHA-1, ECB, insecure `Random`, hardcoded IVs), SQL injection sinks, path traversal, mirrors, WebView JS mode, clipboard misuse, and weak biometric options.
 - **Android** — debuggable release builds, backup, cleartext traffic, exported components, storage permissions, boot receiver, missing network security config.
 - **iOS** — App Transport Security relaxations, file sharing flags, sensitive usage-description keys.
-- **Dependencies** — risky or missing packages and a reminder about release obfuscation flags.
+- **Dependencies** — risky packages, secure-storage recommendations, and certificate-pinning advisories.
 - **Outputs** — colored console, pretty JSON, dark-themed HTML (no external assets).
 
 ## Install

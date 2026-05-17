@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Programmatic API: `FlutterSastScanner`, `ScanOptions`, `ScanReport`,
   `Vulnerability`, `Severity`, and three reporters (`ConsoleReporter`,
   `JsonReporter`, `HtmlReporter`).
-- Initial rule set covering 28 distinct rule IDs:
+- Initial rule set covering 27 distinct rule IDs:
 
   Dart source rules:
     - `DART-001` — Hardcoded secrets (API keys, AWS keys, Firebase keys,
@@ -33,7 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `DART-002d` — Dio `onBadCertificate` returning `true`.
     - `DART-003` — `SharedPreferences` storing sensitive keys in plaintext.
     - `DART-003b` — `GetStorage` storing sensitive keys in plaintext.
-    - `DART-003c` — `Hive` storing sensitive keys without encryption.
     - `DART-003d` — Logging sensitive values via `print` / `debugPrint` / `log`.
     - `DART-004` — Use of MD5.
     - `DART-004b` — Use of SHA-1.

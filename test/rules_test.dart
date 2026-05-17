@@ -1,8 +1,12 @@
 // test/rules_test.dart
 
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import 'package:flutter_sast/flutter_sast.dart';
+import 'package:flutter_sast/src/analyzers/pubspec_analyzer.dart';
+import 'package:flutter_sast/src/rules/base_rule.dart';
 import 'package:flutter_sast/src/rules/dart/hardcoded_secrets_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_network_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_storage_rule.dart';
@@ -44,6 +48,14 @@ void main() {
           rule.analyze('lib/commented.dart', code);
       expect(results, isEmpty);
     });
+
+    test('does not flag RegExp definition lines in rule sources', () {
+      const String line =
+          "regex: RegExp(r'-----BEGIN (?:RSA|EC|DSA|OPENSSH) PRIVATE KEY'),";
+      final List<Vulnerability> results =
+          rule.analyze('lib/src/rules/x.dart', line);
+      expect(results, isEmpty);
+    });
   });
 
   group('InsecureNetworkRule', () {
@@ -74,6 +86,16 @@ void main() {
       expect(results, isNotEmpty);
       expect(results.first.severity, Severity.critical);
     });
+
+    test('ignores badCertificateCallback mentioned only in a comment', () {
+      const String code = '''
+// badCertificateCallback returns true unconditionally in docs
+final x = 1;
+''';
+      final List<Vulnerability> results =
+          rule.analyze('lib/tls.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-002b'), isEmpty);
+    });
   });
 
   group('InsecureStorageRule', () {
@@ -94,6 +116,13 @@ void main() {
           rule.analyze('lib/logging.dart', code);
       expect(results, isNotEmpty);
     });
+
+    test('does not flag generic box.write without GetStorage', () {
+      const String code = "await box.write('token', userToken);";
+      final List<Vulnerability> results =
+          rule.analyze('lib/cache.dart', code);
+      expect(results.any((v) => v.ruleId == 'DART-003b'), isFalse);
+    });
   });
 
   group('WeakCryptoRule', () {
@@ -112,6 +141,72 @@ void main() {
       final List<Vulnerability> results =
           rule.analyze('lib/hash.dart', code);
       expect(results, isNotEmpty);
+    });
+  });
+
+  group('PubspecAnalyzer', () {
+    test('pinning advisory uses DEPS-003 not DEPS-002', () {
+      const String pubspec = '''
+dependencies:
+  flutter:
+    sdk: flutter
+''';
+      final findings = PubspecAnalyzer().analyze(pubspec);
+      expect(
+        findings.any((v) => v.ruleId == 'DEPS-003'),
+        isTrue,
+        reason: 'pinning advisory',
+      );
+      final deps002 = findings.where((v) => v.ruleId == 'DEPS-002').toList();
+      expect(deps002.length, lessThanOrEqualTo(1));
+    });
+  });
+
+  group('sharedSensitiveKeyword', () {
+    test('does not match author', () {
+      expect(sharedSensitiveKeyword.hasMatch('print(author.name)'), isFalse);
+    });
+  });
+
+  group('ruleIdMatchesFilter', () {
+    test('DEPS-0 does not match DEPS-001', () {
+      expect(ruleIdMatchesFilter('DEPS-001', 'DEPS-0'), isFalse);
+    });
+
+    test('DART-002 matches DART-002b', () {
+      expect(ruleIdMatchesFilter('DART-002b', 'DART-002'), isTrue);
+    });
+
+    test('DART-0020 filter does not match DART-002 finding', () {
+      expect(ruleIdMatchesFilter('DART-002', 'DART-0020'), isFalse);
+    });
+
+    test('DART-002 does not match DART-003', () {
+      expect(ruleIdMatchesFilter('DART-003', 'DART-002'), isFalse);
+    });
+  });
+
+  group('self-scan', () {
+    test('lib/src/rules/dart/ is not flagged when scanning this package', () async {
+      if (!File('pubspec.yaml').existsSync()) {
+        return;
+      }
+      final ScanReport report = await FlutterSastScanner(
+        options: const ScanOptions(
+          includeAndroid: false,
+          includeIos: false,
+        ),
+      ).scan('.');
+      final List<Vulnerability> ruleImplHits = report.vulnerabilities
+          .where((Vulnerability v) => v.filePath.contains('lib/src/rules/dart/'))
+          .toList();
+      expect(
+        ruleImplHits,
+        isEmpty,
+        reason: ruleImplHits.map((Vulnerability v) {
+          return '${v.ruleId} ${v.filePath}:${v.lineNumber}';
+        }).join(', '),
+      );
     });
   });
 

@@ -35,6 +35,7 @@ class ScanOptions {
       '.dart_tool/',
       '.pub-cache/',
       'test/',
+      'example/',
     ],
     this.ruleIds = const <String>[],
   });
@@ -71,10 +72,7 @@ class FlutterSastScanner {
     if (options.includeDart) {
       await for (final FileSystemEntity entity
           in root.list(recursive: true, followLinks: false)) {
-        if (entity is! File) {
-          continue;
-        }
-        if (!entity.path.endsWith('.dart')) {
+        if (entity is! File || !entity.path.endsWith('.dart')) {
           continue;
         }
         final String relative = p.relative(entity.path, from: projectPath);
@@ -189,11 +187,12 @@ class FlutterSastScanner {
   /// Runs the rule when [ruleIds] is empty, when a requested ID equals this
   /// rule's ID, or when a requested ID is a sub-rule of it
   /// (e.g. `--rules DART-002b` still runs the `DART-002` rule class).
-  /// Intentionally does NOT match partial prefixes like `DART-0`.
+  /// Uses [ruleIdMatchesFilter] so `DEPS-0` does not enable `DEPS-001`, etc.
   bool _ruleEnabled(String ruleId) {
     if (options.ruleIds.isEmpty) return true;
     return options.ruleIds.any(
-      (String id) => id == ruleId || id.startsWith(ruleId),
+      (String id) =>
+          ruleIdMatchesFilter(id, ruleId) || ruleIdMatchesFilter(ruleId, id),
     );
   }
 
@@ -204,7 +203,7 @@ class FlutterSastScanner {
   bool _subRuleEnabled(String ruleId) {
     if (options.ruleIds.isEmpty) return true;
     return options.ruleIds.any(
-      (String id) => ruleId == id || ruleId.startsWith(id),
+      (String id) => ruleIdMatchesFilter(ruleId, id),
     );
   }
 }

@@ -121,7 +121,7 @@ class PubspecAnalyzer {
         _certPinningPackages.any((String pkg) => declared.contains(pkg));
     if (!hasPinning) {
       findings.add(Vulnerability(
-        ruleId: 'DEPS-002',
+        ruleId: 'DEPS-003',
         title: 'No certificate-pinning package detected',
         description:
             'None of the recognised certificate-pinning packages '

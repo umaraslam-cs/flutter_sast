@@ -156,4 +156,14 @@ abstract final class SecretHeuristics {
       caseSensitive: false,
     ).hasMatch(ctx);
   }
+
+  /// SHA-1 used for display, certs, or identifiers — not a security primitive.
+  static bool isSha1BenignContext(String line, List<String> window) {
+    final String ctx = '$line\n${window.join('\n')}';
+    return RegExp(
+      r'\b(?:thumbprint|fingerprint|certificate|cert|changelog|git|display|'
+      r'format|etag|identifier|avatar|url)\b',
+      caseSensitive: false,
+    ).hasMatch(ctx);
+  }
 }

@@ -45,7 +45,6 @@ class SensitiveLoggingRule extends FilePatternRule {
       final int lineNo = i + 1;
 
       if (_tokenLog.hasMatch(line) && line.contains(r'$')) {
-        final bool debugGuarded = _hasDebugGuard(lines, i);
         findings.add(Vulnerability(
           ruleId: 'DART-009',
           title: 'Push or payment token logged',
@@ -56,12 +55,13 @@ class SensitiveLoggingRule extends FilePatternRule {
               'Remove token logging in production or wrap with kDebugMode.',
           filePath: filePath,
           category: category,
-          severity: debugGuarded ? Severity.low : Severity.medium,
+          severity: Severity.info,
           confidence: FindingConfidence.high,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-532',
           owasp: _owasp,
+          scored: false,
         ));
       }
     }
@@ -91,11 +91,5 @@ class SensitiveLoggingRule extends FilePatternRule {
     }
 
     return findings;
-  }
-
-  bool _hasDebugGuard(List<String> lines, int index) {
-    final int start = (index - 4).clamp(0, lines.length);
-    final String window = lines.sublist(start, index + 1).join('\n');
-    return RegExp(r'kDebugMode|assert\s*\(').hasMatch(window);
   }
 }

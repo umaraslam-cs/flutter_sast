@@ -85,13 +85,14 @@ class InsecureNetworkRule extends FilePatternRule {
     // Cert validation and proxy: run on the stripped content so that
     // commented-out callbacks are not flagged, and multi-line patterns
     // (lambda body on the next line) are detected.
-    _checkCertAndProxy(stripped, filePath, findings);
+    _checkCertAndProxy(stripped, lines, filePath, findings);
 
     return findings;
   }
 
   void _checkCertAndProxy(
     String stripped,
+    List<String> lines,
     String filePath,
     List<Vulnerability> out,
   ) {
@@ -150,6 +151,10 @@ class InsecureNetworkRule extends FilePatternRule {
         stripped.contains(_proxyScheme)) {
       final int idx = stripped.indexOf(_findProxyLiteral);
       final int lineNo = stripped.substring(0, idx).split('\n').length;
+      final int lineIndex = lineNo - 1;
+      if (LineContext.hasDebugGuardInWindow(lines, lineIndex)) {
+        return;
+      }
       out.add(Vulnerability(
         ruleId: 'DART-002c',
         title: 'Hardcoded HTTP proxy configured',
@@ -162,7 +167,7 @@ class InsecureNetworkRule extends FilePatternRule {
             'or platform-provided settings) and validate it before use.',
         filePath: filePath,
         category: category,
-        severity: Severity.medium,
+        severity: Severity.info,
         lineNumber: lineNo,
         snippet: '$_findProxyLiteral … $_proxyScheme<host>',
         cwe: 'CWE-441',

@@ -30,9 +30,6 @@ class CodeSecurityRule extends FilePatternRule {
 
   static final RegExp _sensitiveKeyword = sharedSensitiveKeyword;
 
-  // Split tokens so this rule file does not match itself when scanned.
-  static const String _dartMirrors = 'dart:' 'mirrors';
-  static const String _mirrorSystem = 'Mirror' 'System';
   static const String _jsModeUnrestricted =
       'Javascript' 'Mode.unrestricted';
   static const String _jsModeUnrestrictedAlt =
@@ -102,27 +99,6 @@ class CodeSecurityRule extends FilePatternRule {
           snippet: line.trim(),
           cwe: 'CWE-22',
           owasp: 'M1: Improper Platform Usage',
-        ));
-      }
-
-      if (line.contains(_dartMirrors) || line.contains(_mirrorSystem)) {
-        findings.add(Vulnerability(
-          ruleId: 'DART-005c',
-          title: 'Use of dart:' 'mirrors',
-          description:
-              'The dart:' 'mirrors library enables broad runtime reflection '
-              'which can be abused to bypass intended encapsulation or invoke '
-              'unintended code paths.',
-          recommendation:
-              'Avoid the mirrors library in production code. Prefer code '
-              'generation or explicit dispatch.',
-          filePath: filePath,
-          category: category,
-          severity: Severity.medium,
-          lineNumber: lineNo,
-          snippet: line.trim(),
-          cwe: 'CWE-470',
-          owasp: 'M7: Client Code Quality',
         ));
       }
 

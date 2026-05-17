@@ -25,12 +25,13 @@ void main() {
       expect(findings.any((v) => v.ruleId == 'AND-010'), isTrue);
     });
 
-    test('detects cleartext, backup, maps key, empty permission', () {
+    test('detects cleartext, backup, maps key; AND-007 when cleartext', () {
       final findings = AndroidManifestAnalyzer().analyze(androidXml);
       expect(findings.any((v) => v.ruleId == 'AND-003'), isTrue);
       expect(findings.any((v) => v.ruleId == 'AND-002'), isTrue);
       expect(findings.any((v) => v.ruleId == 'AND-008'), isTrue);
-      expect(findings.any((v) => v.ruleId == 'AND-009'), isTrue);
+      expect(findings.any((v) => v.ruleId == 'AND-007'), isTrue);
+      expect(findings.any((v) => v.ruleId == 'AND-009'), isFalse);
     });
 
     test('skips launcher MAIN activity for AND-004', () {
@@ -49,13 +50,21 @@ void main() {
   });
 
   group('IosPlistAnalyzer fixtures', () {
-    test('detects ATS bypass; IOS-006 only in privacy profile', () {
+    test('detects ATS bypass; IOS-006 for empty/generic usage strings only', () {
       final findings = IosPlistAnalyzer().analyze(iosPlist);
       expect(findings.any((v) => v.ruleId == 'IOS-001'), isTrue);
       expect(findings.any((v) => v.ruleId == 'IOS-006'), isFalse);
 
       final privacy = IosPlistAnalyzer(includePrivacyKeys: true).analyze(iosPlist);
-      expect(privacy.any((v) => v.ruleId == 'IOS-006'), isTrue);
+      expect(privacy.any((v) => v.ruleId == 'IOS-006'), isFalse);
+
+      const String weakDescPlist = '''
+<key>NSCameraUsageDescription</key>
+<string>This app needs camera access.</string>
+''';
+      final weak = IosPlistAnalyzer(includePrivacyKeys: true)
+          .analyze(weakDescPlist);
+      expect(weak.any((v) => v.ruleId == 'IOS-006'), isTrue);
     });
   });
 

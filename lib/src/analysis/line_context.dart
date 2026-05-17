@@ -234,6 +234,26 @@ abstract final class LineContext {
   static bool isUiStringLine(String line) =>
       classify(line) == LineContextKind.uiString;
 
+  /// Debug / dev-only guards near [lineIndex] (0-based).
+  static bool hasDebugGuardInWindow(
+    List<String> lines,
+    int lineIndex, {
+    int before = 10,
+    int after = 3,
+  }) {
+    final int start = (lineIndex - before).clamp(0, lines.length);
+    final int end = (lineIndex + after + 1).clamp(0, lines.length);
+    if (start >= end) {
+      return false;
+    }
+    final String window = lines.sublist(start, end).join('\n');
+    return RegExp(
+      r'kDebugMode|assert\s*\(|Flavor\.dev|Flavor\.development|'
+      r'enableHttpInspector|//\s*debug\b|_debug\b|fromEnvironment\s*\(',
+      caseSensitive: false,
+    ).hasMatch(window);
+  }
+
   /// SharedPreferences write with a genuinely sensitive key name.
   static bool isSensitivePrefsWrite(String line) {
     if (!_prefsWrite.hasMatch(line)) {

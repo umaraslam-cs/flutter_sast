@@ -51,13 +51,9 @@ class WeakCryptoRule extends FilePatternRule {
         final int windowEnd = (i + 5).clamp(0, lines.length - 1);
         final List<String> window =
             lines.sublist(windowStart, windowEnd + 1);
-        final bool cacheUse = SecretHeuristics.isMd5CacheContext(line, window);
-        final bool securityUse =
-            SecretHeuristics.isSecurityCryptoContext(line, window);
-        if (cacheUse && !securityUse) {
+        if (!SecretHeuristics.isSecurityCryptoContext(line, window)) {
           continue;
         }
-        final bool reportHigh = securityUse || (!cacheUse && !securityUse);
         findings.add(Vulnerability(
           ruleId: 'DART-004',
           title: 'Use of MD' '5 hashing algorithm',
@@ -69,17 +65,26 @@ class WeakCryptoRule extends FilePatternRule {
               'for password storage.',
           filePath: filePath,
           category: category,
-          severity: reportHigh ? Severity.high : Severity.info,
-          confidence: cacheUse ? FindingConfidence.low : FindingConfidence.medium,
+          severity: Severity.high,
+          confidence: FindingConfidence.high,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-327',
           owasp: _owasp,
-          scored: reportHigh,
         ));
       }
 
       if (_sha1.hasMatch(line)) {
+        final int windowStart = (i - 5).clamp(0, lines.length - 1);
+        final int windowEnd = (i + 5).clamp(0, lines.length - 1);
+        final List<String> window =
+            lines.sublist(windowStart, windowEnd + 1);
+        if (!SecretHeuristics.isSecurityCryptoContext(line, window)) {
+          continue;
+        }
+        if (SecretHeuristics.isSha1BenignContext(line, window)) {
+          continue;
+        }
         findings.add(Vulnerability(
           ruleId: 'DART-004b',
           title: 'Use of SHA-' '1 hashing algorithm',

@@ -86,7 +86,6 @@ class FlutterSastScanner {
     final List<Vulnerability> findings = <Vulnerability>[];
     int filesScanned = 0;
     final StringBuffer libAggregate = StringBuffer();
-    final Set<String> importedPackages = <String>{};
 
     if (options.includeDart) {
       await for (final FileSystemEntity entity
@@ -111,11 +110,6 @@ class FlutterSastScanner {
 
         if (relative.startsWith('lib/')) {
           libAggregate.writeln(content);
-          for (final RegExpMatch m in RegExp(
-            r'''import\s+['"]package:([a-z_][a-z0-9_]*)/''',
-          ).allMatches(content)) {
-            importedPackages.add(m.group(1)!);
-          }
         }
 
         filesScanned += 1;
@@ -236,7 +230,6 @@ class FlutterSastScanner {
             await pubspec.readAsString(),
             includeAppDependencyAdvisories: project.isFlutterApplication,
             libSourceAggregate: libAggregate.toString(),
-            importedPackages: importedPackages,
           ),
           profile,
         );

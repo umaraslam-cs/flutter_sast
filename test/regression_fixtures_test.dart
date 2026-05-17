@@ -105,11 +105,11 @@ void main() {
     );
   });
 
-  test('MD5 cache context — not scored HIGH DART-004', () {
+  test('MD5 cache context — no DART-004', () {
     final code = fixture('md5_cache_snippet.dart');
     final md5Findings = weakCrypto
         .analyze('lib/util/cache_paths.dart', code)
         .where((v) => v.ruleId == 'DART-004');
-    expect(md5Findings.where((v) => v.scored && v.severity.name == 'high'), isEmpty);
+    expect(md5Findings, isEmpty);
   });
 }

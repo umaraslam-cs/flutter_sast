@@ -5,13 +5,6 @@ import 'package:yaml/yaml.dart';
 import '../models/severity.dart';
 import '../models/vulnerability.dart';
 
-class _RiskyDep {
-  final String name;
-  final String description;
-  final Severity severity;
-  const _RiskyDep(this.name, this.description, this.severity);
-}
-
 class _MissingDep {
   final String name;
   final String description;
@@ -23,32 +16,6 @@ class _MissingDep {
 class PubspecAnalyzer {
   static const String filePath = 'pubspec.yaml';
   static const String _category = 'Dependencies';
-
-  static const List<_RiskyDep> _risky = <_RiskyDep>[
-    // Cleartext HTTP is reported by [InsecureNetworkRule] when `http://` appears
-    // in Dart sources; listing `http` here only duplicates that signal.
-    _RiskyDep(
-      'dio',
-      'Dio certificate validation and interceptor configuration can be '
-          'disabled accidentally; audit usage and pin to the latest version.',
-      Severity.low,
-    ),
-    _RiskyDep(
-      'get_storage',
-      'Stores data as plaintext JSON',
-      Severity.info,
-    ),
-    _RiskyDep(
-      'sqflite',
-      'Databases unencrypted by default',
-      Severity.info,
-    ),
-    _RiskyDep(
-      'shared_preferences',
-      'Stores data as plaintext',
-      Severity.info,
-    ),
-  ];
 
   static const List<_MissingDep> _recommended = <_MissingDep>[
     _MissingDep(
@@ -70,7 +37,6 @@ class PubspecAnalyzer {
     String content, {
     bool includeAppDependencyAdvisories = true,
     String? libSourceAggregate,
-    Set<String> importedPackages = const <String>{},
   }) {
     final List<Vulnerability> findings = <Vulnerability>[];
 
@@ -80,25 +46,6 @@ class PubspecAnalyzer {
       declared = _collectKeys(doc);
     } on YamlException {
       declared = <String>{};
-    }
-
-    for (final _RiskyDep dep in _risky) {
-      if (declared.contains(dep.name)) {
-        findings.add(Vulnerability(
-          ruleId: 'DEPS-001',
-          title: 'Risky dependency: ${dep.name}',
-          description: dep.description,
-          recommendation:
-              'Audit usage of ${dep.name}, pin to the latest version, or '
-              'replace with a more secure alternative.',
-          filePath: filePath,
-          category: 'Recommendation',
-          severity: dep.severity,
-          cwe: 'CWE-1104',
-          owasp: 'M2: Inadequate Supply Chain Security',
-          scored: false,
-        ));
-      }
     }
 
     if (includeAppDependencyAdvisories) {
@@ -131,7 +78,8 @@ class PubspecAnalyzer {
       final bool hasInCodePinning = libSourceAggregate != null &&
           RegExp(
             r'validateCertificate|badCertificateCallback.*fingerprint|'
-            r'sha256.*compare|certificatePinning',
+            r'sha256.*compare|certificatePinning|SecurityContext|'
+            r'pinnedCertificates|setTrustedCertificates',
             caseSensitive: false,
           ).hasMatch(libSourceAggregate);
       if (!hasPinningPackage && !hasInCodePinning) {
@@ -141,40 +89,18 @@ class PubspecAnalyzer {
           description:
               'None of the recognised certificate-pinning packages '
               '(${_certPinningPackages.join(", ")}) were found, and no in-code '
-              'pinning pattern was detected in lib/.',
+              'pinning pattern was detected in lib/. Many apps omit pinning; '
+              'treat this as a best-practice advisory.',
           recommendation:
-              'Add a certificate-pinning package and configure it for '
-              'your critical API hosts.',
+              'Consider certificate pinning for high-value API hosts if '
+              'threat model requires it.',
           filePath: filePath,
           category: 'Recommendation',
-          severity: Severity.low,
+          severity: Severity.info,
           cwe: 'CWE-295',
           owasp: 'M3: Insecure Communication',
           scored: false,
         ));
-      }
-
-      const List<String> securityPackages = <String>[
-        'flutter_jailbreak_detection',
-        'flutter_jailbreak_detection_plus',
-        'safe_device',
-      ];
-      for (final String pkg in securityPackages) {
-        if (declared.contains(pkg) && !importedPackages.contains(pkg)) {
-          findings.add(Vulnerability(
-            ruleId: 'DEPS-004',
-            title: 'Security dependency declared but unused: $pkg',
-            description:
-                '$pkg is in pubspec.yaml but no import was found under lib/.',
-            recommendation: 'Wire up the control or remove the unused dependency.',
-            filePath: filePath,
-            category: 'Recommendation',
-            severity: Severity.info,
-            cwe: 'CWE-1104',
-            owasp: 'M2: Inadequate Supply Chain Security',
-            scored: false,
-          ));
-        }
       }
     }
 

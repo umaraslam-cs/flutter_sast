@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Noise reduction:** removed `DEPS-001` (risky package declarations), `DEPS-004`
+  (unused security deps), `AND-006`, `AND-009`, and `DART-005c` (`dart:mirrors`).
+- **`DART-004` / `DART-004b`:** only flag MD5/SHA-1 in security-sensitive context;
+  SHA-1 skips thumbprint/display use.
+- **`AND-007`:** only when cleartext traffic is allowed or `targetSdkVersion` &lt; 28.
+- **`IOS-006`:** flags empty or generic usage-description strings (privacy profile),
+  not mere presence of a permission key.
+- **`DART-009`:** INFO, excluded from score; **`DART-002c`:** INFO, skipped when
+  behind a debug guard.
+- **`DEPS-003`:** INFO advisory; improved in-code pinning detection
+  (`SecurityContext`, `pinnedCertificates`).
+
 ## [0.2.0] - 2026-05-17
 
 ### Added

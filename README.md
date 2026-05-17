@@ -11,7 +11,7 @@ The package targets **Dart SDK 2.17+**, which matches **Flutter 3.0.0** (Dart 2.
 
 ## Features
 
-- **Dart rules** — hardcoded secrets, cleartext HTTP, permissive TLS callbacks, insecure local storage, weak crypto (MD5, SHA-1, ECB, insecure `Random`, hardcoded IVs), SQL injection sinks, path traversal, mirrors, WebView JS mode, clipboard misuse, and weak biometric options.
+- **Dart rules** — hardcoded secrets, cleartext HTTP, permissive TLS callbacks, insecure local storage, weak crypto (security-context MD5/SHA-1, ECB, insecure `Random`, hardcoded IVs), SQL injection sinks, path traversal, WebView JS mode, clipboard misuse, and weak biometric options.
 - **Android** — debuggable release builds, backup, cleartext traffic, exported components, storage permissions, boot receiver, missing network security config.
 - **iOS** — App Transport Security relaxations, file sharing flags, sensitive usage-description keys.
 - **Dependencies** — risky packages, secure-storage recommendations, and certificate-pinning advisories.
@@ -182,10 +182,10 @@ Heuristic pattern matching — not a full AST. Each finding includes **severity*
 | **Dart network** | `DART-002`–`002d` | Cleartext HTTP, bad cert callbacks, hardcoded proxy |
 | **Dart storage** | `DART-003`, `003b`, `003d` | Sensitive `SharedPreferences` / `GetStorage`, credential logging |
 | **Dart crypto** | `DART-004`–`004e` | MD5, SHA-1, insecure `Random`, ECB, hardcoded IV |
-| **Dart code** | `DART-005`–`005f` | SQLi sinks, path traversal, mirrors, WebView JS, clipboard, biometrics |
-| **Android** | `AND-001`–`011` | Debuggable, backup, cleartext, exported components, Maps API key, Facebook-style client tokens in `strings.xml` |
-| **iOS** | `IOS-001`–`006` | ATS bypass, file sharing, privacy usage keys |
-| **Dependencies** | `DEPS-001`–`003` | Risky packages, secure storage / pinning advisories (Flutter apps only) |
+| **Dart code** | `DART-005`–`005f` | SQLi sinks, path traversal, WebView JS, clipboard, biometrics |
+| **Android** | `AND-001`–`011` | Debuggable, backup, cleartext, exported components, Maps API key, SDK tokens in `strings.xml` |
+| **iOS** | `IOS-001`–`006` | ATS bypass, file sharing; weak usage strings (`privacy` profile) |
+| **Dependencies** | `DEPS-002`–`003` | Secure-storage / pinning advisories (Flutter apps only) |
 
 **`riskLevel`:** `CLEAN`, `ADVISORY` (deps-only hints), `LOW` … `CRITICAL`.
 

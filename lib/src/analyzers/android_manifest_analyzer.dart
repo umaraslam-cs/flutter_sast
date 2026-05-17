@@ -28,16 +28,15 @@ class AndroidManifestAnalyzer {
   static final RegExp _externalStorage = RegExp(
     r'(?:READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE)',
   );
-  static final RegExp _bootCompleted = RegExp(r'RECEIVE_BOOT_COMPLETED');
   static final RegExp _networkSecurityConfig =
       RegExp(r'android:networkSecurityConfig');
+  static final RegExp _targetSdkVersion = RegExp(
+    r'android:targetSdkVersion\s*=\s*"(\d+)"',
+  );
   static final RegExp _mapsApiKey = RegExp(
     r'com\.google\.android\.geo\.API_KEY',
   );
   static final RegExp _googleApiKeyValue = RegExp(r'AIza[0-9A-Za-z\-_]{35}');
-  static final RegExp _emptyPermission = RegExp(
-    r'android:permission\s*=\s*""|<uses-permission[^>]+android:name\s*=\s*"android\.permission\.\s*"',
-  );
   static final RegExp _mediaExportComponent = RegExp(
     r'MediaBrowser|MediaButton|AudioService|just_audio',
     caseSensitive: false,
@@ -176,24 +175,6 @@ class AndroidManifestAnalyzer {
       ));
     }
 
-    if (_bootCompleted.hasMatch(content)) {
-      findings.add(const Vulnerability(
-        ruleId: 'AND-006',
-        title: 'RECEIVE_BOOT_COMPLETED permission requested',
-        description:
-            'The app requests RECEIVE_BOOT_COMPLETED, which lets it run on '
-            'every device boot. Confirm this is necessary.',
-        recommendation:
-            'Remove the permission unless background-on-boot behaviour is a '
-            'documented feature.',
-        filePath: filePath,
-        category: _category,
-        severity: Severity.info,
-        cwe: 'CWE-693',
-        owasp: 'M7: Client Code Quality',
-      ));
-    }
-
     if (_mapsApiKey.hasMatch(content) && _googleApiKeyValue.hasMatch(content)) {
       findings.add(Vulnerability(
         ruleId: 'AND-008',
@@ -212,44 +193,42 @@ class AndroidManifestAnalyzer {
       ));
     }
 
-    if (_emptyPermission.hasMatch(content)) {
-      findings.add(const Vulnerability(
-        ruleId: 'AND-009',
-        title: 'Invalid or empty uses-permission entry',
-        description:
-            'The manifest declares a uses-permission with an empty or incomplete '
-            'android:name (e.g. android.permission. with no suffix). This is '
-            'invalid and may cause build or policy issues.',
-        recommendation:
-            'Remove the broken entry or set a valid android.permission name.',
-        filePath: filePath,
-        category: _category,
-        severity: Severity.medium,
-        cwe: 'CWE-693',
-        owasp: 'M7: Client Code Quality',
-      ));
-    }
-
     if (!_networkSecurityConfig.hasMatch(content)) {
-      findings.add(const Vulnerability(
-        ruleId: 'AND-007',
-        title: 'Missing networkSecurityConfig',
-        description:
-            'No android:networkSecurityConfig is referenced in the manifest. '
-            'A network security config lets you restrict cleartext traffic, '
-            'pin certificates, and limit trusted CAs.',
-        recommendation:
-            'Add a network_security_config XML and reference it via '
-            'android:networkSecurityConfig in the <application> element.',
-        filePath: filePath,
-        category: _category,
-        severity: Severity.low,
-        cwe: 'CWE-319',
-        owasp: 'M3: Insecure Communication',
-      ));
+      final bool cleartextAllowed = _cleartextTraffic.hasMatch(content);
+      final int? targetSdk = _parseTargetSdk(content);
+      final bool legacyTarget = targetSdk != null && targetSdk < 28;
+      if (cleartextAllowed || legacyTarget) {
+        findings.add(Vulnerability(
+          ruleId: 'AND-007',
+          title: 'Missing networkSecurityConfig',
+          description: cleartextAllowed
+              ? 'Cleartext traffic is permitted but no '
+                  'android:networkSecurityConfig is referenced. A network '
+                  'security config can scope cleartext to specific debug hosts.'
+              : 'targetSdkVersion is below 28 and no '
+                  'android:networkSecurityConfig is referenced. Consider '
+                  'restricting cleartext and trusted CAs explicitly.',
+          recommendation:
+              'Add a network_security_config XML and reference it via '
+              'android:networkSecurityConfig in the <application> element.',
+          filePath: filePath,
+          category: _category,
+          severity: Severity.low,
+          cwe: 'CWE-319',
+          owasp: 'M3: Insecure Communication',
+        ));
+      }
     }
 
     return findings;
+  }
+
+  static int? _parseTargetSdk(String content) {
+    final RegExpMatch? m = _targetSdkVersion.firstMatch(content);
+    if (m == null) {
+      return null;
+    }
+    return int.tryParse(m.group(1)!);
   }
 
   static int _lineNumberAt(String content, int offset) =>

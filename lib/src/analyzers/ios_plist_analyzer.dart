@@ -8,7 +8,8 @@ import '../models/vulnerability.dart';
 class IosPlistAnalyzer {
   IosPlistAnalyzer({this.includePrivacyKeys = false});
 
-  /// When false (default `security` profile), IOS-006 privacy keys are omitted.
+  /// When false (default `security` profile), IOS-006 usage-description checks
+  /// are omitted. When true (`privacy` profile), flags empty or generic strings.
   final bool includePrivacyKeys;
 
   static const String filePath = 'ios/Runner/Info.plist';
@@ -159,26 +160,61 @@ class IosPlistAnalyzer {
     }
 
     for (final String key in _privacyKeys) {
-      if (content.contains('<key>$key</key>')) {
-        findings.add(Vulnerability(
-          ruleId: 'IOS-006',
-          title: '$key declared in Info.plist',
-          description:
-              '$key is declared, meaning the app intends to access this '
-              'sensitive resource. Verify the runtime use matches the user '
-              'expectation set by the usage description string.',
-          recommendation:
-              'Audit usage at runtime and remove the key if the capability '
-              'is no longer used.',
-          filePath: filePath,
-          category: _category,
-          severity: Severity.info,
-          cwe: 'CWE-359',
-          owasp: 'M6: Inadequate Privacy Controls',
-        ));
+      final RegExp keyBlock = RegExp(
+        '<key>$key</key>\\s*<string>([^<]*)</string>',
+        multiLine: true,
+      );
+      final RegExpMatch? match = keyBlock.firstMatch(content);
+      if (match == null) {
+        continue;
       }
+      final String description = match.group(1) ?? '';
+      if (!_isWeakUsageDescription(description)) {
+        continue;
+      }
+      findings.add(Vulnerability(
+        ruleId: 'IOS-006',
+        title: 'Weak or missing $key string',
+        description: description.trim().isEmpty
+            ? '$key is present but the usage description string is empty. '
+                'App Store review requires a clear explanation of why the '
+                'permission is needed.'
+            : '$key uses a generic or placeholder usage string that does '
+                'not explain why access is needed.',
+        recommendation:
+            'Replace with a specific, user-facing explanation of how the '
+            'app uses this capability.',
+        filePath: filePath,
+        category: _category,
+        severity: Severity.medium,
+        cwe: 'CWE-359',
+        owasp: 'M6: Inadequate Privacy Controls',
+      ));
     }
 
     return findings;
+  }
+
+  static bool _isWeakUsageDescription(String text) {
+    final String t = text.trim();
+    if (t.isEmpty) {
+      return true;
+    }
+    if (t.length < 12) {
+      return true;
+    }
+    if (RegExp(
+      r'^(?:This app needs |Allow |We need |App requires |Needs access to )',
+      caseSensitive: false,
+    ).hasMatch(t)) {
+      return true;
+    }
+    if (RegExp(
+      r'^(?:camera|microphone|location|contacts|photo library) access\.?$',
+      caseSensitive: false,
+    ).hasMatch(t)) {
+      return true;
+    }
+    return false;
   }
 }

@@ -232,19 +232,42 @@ await prefs.setString(_keyLastSessionDate, DateTime.now().toIso8601String());
   group('WeakCryptoRule', () {
     final WeakCryptoRule rule = WeakCryptoRule();
 
-    test('detects md5.convert() as HIGH', () {
-      const String code = 'final digest = md5.convert(utf8.encode(input));';
+    test('detects md5.convert() in security context as HIGH', () {
+      const String code = '''
+void hashPassword(String password) {
+  final digest = md5.convert(utf8.encode(password));
+}
+''';
       final List<Vulnerability> results =
-          rule.analyze('lib/hash.dart', code);
-      expect(results, isNotEmpty);
+          rule.analyze('lib/auth/hash.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-004'), isNotEmpty);
       expect(results.first.severity, Severity.high);
     });
 
-    test('detects sha1.convert()', () {
-      const String code = 'final digest = sha1.convert(utf8.encode(input));';
+    test('skips md5.convert() outside security context', () {
+      const String code = 'final digest = md5.convert(utf8.encode(cacheKey));';
       final List<Vulnerability> results =
-          rule.analyze('lib/hash.dart', code);
-      expect(results, isNotEmpty);
+          rule.analyze('lib/util/cache.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-004'), isEmpty);
+    });
+
+    test('detects sha1.convert() in security context', () {
+      const String code = '''
+void signRequest(String secret) {
+  final digest = sha1.convert(utf8.encode(secret));
+}
+''';
+      final List<Vulnerability> results =
+          rule.analyze('lib/auth/sign.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-004b'), isNotEmpty);
+    });
+
+    test('skips sha1 for certificate thumbprint display', () {
+      const String code =
+          'final thumb = sha1.convert(certBytes).toString(); // fingerprint';
+      final List<Vulnerability> results =
+          rule.analyze('lib/ui/cert_display.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-004b'), isEmpty);
     });
   });
 
@@ -366,13 +389,13 @@ dependencies:
     test('recommendations do not reduce securityScore', () {
       final ScanReport r = reportWith(<Vulnerability>[
         const Vulnerability(
-          ruleId: 'DEPS-001',
+          ruleId: 'DEPS-003',
           title: 't',
           description: 'd',
           recommendation: 'r',
           filePath: 'pubspec.yaml',
           category: 'Recommendation',
-          severity: Severity.low,
+          severity: Severity.info,
           scored: false,
         ),
       ]);

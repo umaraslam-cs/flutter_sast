@@ -27,8 +27,8 @@ platforms:
   windows:
 
 environment:
-  # Dart 3.3 = Flutter 3.19+. Covers all stable releases through Flutter 4.x.
-  sdk: ">=3.3.0 <5.0.0"
+  # Dart 3.3 = Flutter 3.19+.
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   args: ^2.4.2

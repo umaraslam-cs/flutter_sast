@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Line context layer** (`LineContext`) to cut false positives: test/mock lines,
+  UI strings, benign prefs keys, dev/staging HTTP hosts, and safer logging rules.
+- **`FindingConfidence`** on every finding (`LOW` / `MEDIUM` / `HIGH`) in console,
+  JSON, and HTML reports.
+- **30 rule IDs** including `AND-008` (Google Maps API key in manifest),
+  `AND-009` (invalid `uses-permission`), AppsFlyer / RevenueCat key patterns.
+- **`projectName`** from `pubspec.yaml`; absolute `projectPath` in reports.
+- Root CLI shorthand: `flutter_sast` and `flutter_sast .` (no `scan` required).
+- Default outputs: console + `flutter_sast_report.json` + `.html`; clickable
+  `file://` link for HTML.
+- `-q` / `--quiet`, smarter `-o` paths, and `test/fixtures/` for analyzer tests.
+
+### Changed
+
+- **Hygiene score** uses capped deductions (no more automatic 0/100 on noisy apps).
+- **`riskLevel` `ADVISORY`** when only `DEPS-*` findings and nothing HIGH+.
+- **Firebase client keys**: `INFO` severity, low confidence, client-key guidance.
+- **DEPS-002 / DEPS-003** skipped for pure Dart / CLI packages (no `flutter` SDK dep).
+- Reduced false positives: `FFUploadedFile` path traversal, session prefs, static
+  logs, `api.example.com`, duplicate secret patterns per line.
+
+### Fixed
+
+- Self-scan no longer flags rule implementation files under `lib/src/rules/dart/`.
+
 ## [0.1.0] - 2026-05-13
 
 ### Added
@@ -21,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Programmatic API: `FlutterSastScanner`, `ScanOptions`, `ScanReport`,
   `Vulnerability`, `Severity`, and three reporters (`ConsoleReporter`,
   `JsonReporter`, `HtmlReporter`).
-- Initial rule set covering 27 distinct rule IDs:
+- Initial rule set covering 27 distinct rule IDs (see [Unreleased] for updates to 30):
 
   Dart source rules:
     - `DART-001` — Hardcoded secrets (API keys, AWS keys, Firebase keys,
@@ -66,6 +95,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Pubspec analyzer rules:
     - `DEPS-001` — Risky dependencies declared.
     - `DEPS-002` — Recommended security packages missing.
-    - `DEPS-003` — Build does not appear to use code obfuscation.
+    - `DEPS-003` — No certificate-pinning package detected (advisory).
 
 [0.1.0]: https://github.com/umaraslam-cs/flutter_sast/releases/tag/v0.1.0

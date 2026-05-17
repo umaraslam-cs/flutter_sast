@@ -257,6 +257,21 @@ dependencies:
   });
 
   group('self-scan', () {
+    test('full package scan is clean for this CLI repo', () async {
+      if (!File('pubspec.yaml').existsSync()) {
+        return;
+      }
+      final ScanReport report = await FlutterSastScanner(
+        options: const ScanOptions(
+          includeAndroid: false,
+          includeIos: false,
+        ),
+      ).scan('.');
+      expect(report.vulnerabilities, isEmpty);
+      expect(report.riskLevel, 'CLEAN');
+      expect(report.securityScore, 100);
+    });
+
     test('lib/src/rules/dart/ is not flagged when scanning this package', () async {
       if (!File('pubspec.yaml').existsSync()) {
         return;
@@ -316,6 +331,21 @@ dependencies:
 
     test('riskLevel == CLEAN with no findings', () {
       expect(reportWith(<Vulnerability>[]).riskLevel, 'CLEAN');
+    });
+
+    test('riskLevel == ADVISORY for DEPS-only findings', () {
+      final ScanReport r = reportWith(<Vulnerability>[
+        const Vulnerability(
+          ruleId: 'DEPS-002',
+          title: 't',
+          description: 'd',
+          recommendation: 'r',
+          filePath: 'pubspec.yaml',
+          category: 'Dependencies',
+          severity: Severity.medium,
+        ),
+      ]);
+      expect(r.riskLevel, 'ADVISORY');
     });
 
     test('riskLevel == CRITICAL with one CRITICAL finding', () {

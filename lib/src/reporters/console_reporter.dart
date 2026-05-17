@@ -124,7 +124,7 @@ class ConsoleReporter {
     final String conf =
         v.confidence == FindingConfidence.high
             ? ''
-            : ' ${_dim}[confidence: ${v.confidence.label}]$_reset';
+            : ' $_dim[confidence: $v.confidence.label]$_reset';
     out.writeln('$sevTag $_bold${v.ruleId}$_reset  ${v.title}$conf');
     final String location = v.lineNumber != null
         ? '${v.filePath}:${v.lineNumber}'
@@ -162,6 +162,8 @@ class ConsoleReporter {
         return _yellow;
       case 'LOW':
         return '\x1B[34m';
+      case 'ADVISORY':
+        return _dim;
       case 'CLEAN':
         return _green;
       default:

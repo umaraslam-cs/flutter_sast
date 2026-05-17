@@ -70,7 +70,10 @@ class PubspecAnalyzer {
     'flutter_certificate_pinning',
   ];
 
-  List<Vulnerability> analyze(String content) {
+  List<Vulnerability> analyze(
+    String content, {
+    bool includeAppDependencyAdvisories = true,
+  }) {
     final List<Vulnerability> findings = <Vulnerability>[];
 
     Set<String> declared;
@@ -99,44 +102,45 @@ class PubspecAnalyzer {
       }
     }
 
-    for (final _MissingDep dep in _recommended) {
-      if (!declared.contains(dep.name)) {
+    if (includeAppDependencyAdvisories) {
+      for (final _MissingDep dep in _recommended) {
+        if (!declared.contains(dep.name)) {
+          findings.add(Vulnerability(
+            ruleId: 'DEPS-002',
+            title: 'Recommended security package missing: ${dep.name}',
+            description: dep.description,
+            recommendation:
+                'Add ${dep.name} to dependencies and use it where appropriate.',
+            filePath: filePath,
+            category: _category,
+            severity: dep.severity,
+            cwe: 'CWE-693',
+            owasp: 'M2: Inadequate Supply Chain Security',
+          ));
+        }
+      }
+
+      final bool hasPinning =
+          _certPinningPackages.any((String pkg) => declared.contains(pkg));
+      if (!hasPinning) {
         findings.add(Vulnerability(
-          ruleId: 'DEPS-002',
-          title: 'Recommended security package missing: ${dep.name}',
-          description: dep.description,
+          ruleId: 'DEPS-003',
+          title: 'No certificate-pinning package detected',
+          description:
+              'None of the recognised certificate-pinning packages '
+              '(${_certPinningPackages.join(", ")}) were found. '
+              'Consider pinning the TLS certificate or public key for '
+              'critical endpoints.',
           recommendation:
-              'Add ${dep.name} to dependencies and use it where appropriate.',
+              'Add a certificate-pinning package and configure it for '
+              'your critical API hosts.',
           filePath: filePath,
           category: _category,
-          severity: dep.severity,
-          cwe: 'CWE-693',
-          owasp: 'M2: Inadequate Supply Chain Security',
+          severity: Severity.low,
+          cwe: 'CWE-295',
+          owasp: 'M3: Insecure Communication',
         ));
       }
-    }
-
-    // Certificate pinning: accept any recognised pinning package, not just one.
-    final bool hasPinning =
-        _certPinningPackages.any((String pkg) => declared.contains(pkg));
-    if (!hasPinning) {
-      findings.add(Vulnerability(
-        ruleId: 'DEPS-003',
-        title: 'No certificate-pinning package detected',
-        description:
-            'None of the recognised certificate-pinning packages '
-            '(${_certPinningPackages.join(", ")}) were found. '
-            'Consider pinning the TLS certificate or public key for '
-            'critical endpoints.',
-        recommendation:
-            'Add a certificate-pinning package and configure it for '
-            'your critical API hosts.',
-        filePath: filePath,
-        category: _category,
-        severity: Severity.low,
-        cwe: 'CWE-295',
-        owasp: 'M3: Insecure Communication',
-      ));
     }
 
     // Note: --obfuscate / --split-debug-info are flutter build CLI flags, not

@@ -139,7 +139,13 @@ class FlutterSastScanner {
       final File pubspec = File(p.join(project.path, 'pubspec.yaml'));
       if (await pubspec.exists()) {
         final String content = await pubspec.readAsString();
-        _addFiltered(findings, PubspecAnalyzer().analyze(content));
+        _addFiltered(
+          findings,
+          PubspecAnalyzer().analyze(
+            content,
+            includeAppDependencyAdvisories: project.isFlutterApplication,
+          ),
+        );
       }
     }
 

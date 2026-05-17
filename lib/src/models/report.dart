@@ -55,8 +55,17 @@ class ScanReport {
     return 100 - deducted.clamp(0, 75);
   }
 
-  /// Highest severity present in the report, or `CLEAN`.
+  /// Highest severity present in the report, or `CLEAN` / `ADVISORY`.
+  ///
+  /// `ADVISORY` means only dependency hints (DEPS-*) — no code or platform
+  /// findings at HIGH or above.
   String get riskLevel {
+    if (vulnerabilities.isEmpty) {
+      return 'CLEAN';
+    }
+    if (_onlyDependencyAdvisories && criticalCount == 0 && highCount == 0) {
+      return 'ADVISORY';
+    }
     if (criticalCount > 0) {
       return 'CRITICAL';
     }
@@ -71,6 +80,9 @@ class ScanReport {
     }
     return 'CLEAN';
   }
+
+  bool get _onlyDependencyAdvisories =>
+      vulnerabilities.every((Vulnerability v) => v.ruleId.startsWith('DEPS-'));
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{

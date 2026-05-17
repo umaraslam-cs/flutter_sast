@@ -152,6 +152,25 @@ All flags below apply to the **`scan`** command (see `flutter_sast scan --help`)
 
 Exit codes: `0` success, `1` policy failure (`--fail-on-*`) or usage error, `2` scan error (e.g. invalid project path).
 
+### Rule catalog (30 IDs)
+
+Heuristic pattern matching — not a full AST. Each finding includes **severity** and **confidence** (`LOW` / `MEDIUM` / `HIGH`).
+
+| Area | IDs | Examples |
+|------|-----|----------|
+| **Dart secrets** | `DART-001` | API keys, AWS, Firebase (INFO), RevenueCat, AppsFlyer, tokens, private keys |
+| **Dart network** | `DART-002`–`002d` | Cleartext HTTP, bad cert callbacks, hardcoded proxy |
+| **Dart storage** | `DART-003`, `003b`, `003d` | Sensitive `SharedPreferences` / `GetStorage`, credential logging |
+| **Dart crypto** | `DART-004`–`004e` | MD5, SHA-1, insecure `Random`, ECB, hardcoded IV |
+| **Dart code** | `DART-005`–`005f` | SQLi sinks, path traversal, mirrors, WebView JS, clipboard, biometrics |
+| **Android** | `AND-001`–`009` | Debuggable, backup, cleartext, exported components, Maps API key |
+| **iOS** | `IOS-001`–`006` | ATS bypass, file sharing, privacy usage keys |
+| **Dependencies** | `DEPS-001`–`003` | Risky packages, secure storage / pinning advisories (Flutter apps only) |
+
+**`riskLevel`:** `CLEAN`, `ADVISORY` (deps-only hints), `LOW` … `CRITICAL`. **Score** is a hygiene index, not exploitability.
+
+Pure Dart CLIs (no `flutter` SDK in `pubspec.yaml`) do not get `DEPS-002` / `DEPS-003`.
+
 ## Programmatic API
 
 ```dart

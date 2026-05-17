@@ -8,6 +8,7 @@ import 'analyzers/android_manifest_analyzer.dart';
 import 'analyzers/ios_plist_analyzer.dart';
 import 'analyzers/pubspec_analyzer.dart';
 import 'models/report.dart';
+import 'project_info.dart';
 import 'models/vulnerability.dart';
 import 'rules/base_rule.dart';
 import 'rules/dart/code_security_rule.dart';
@@ -58,10 +59,11 @@ class FlutterSastScanner {
         ];
 
   Future<ScanReport> scan(String projectPath) async {
-    final Directory root = Directory(projectPath);
+    final ProjectInfo project = await ProjectInfo.resolve(projectPath);
+    final Directory root = Directory(project.path);
     if (!await root.exists()) {
       throw ArgumentError(
-        'Project path does not exist: $projectPath',
+        'Project path does not exist: ${project.path}',
       );
     }
 
@@ -75,7 +77,7 @@ class FlutterSastScanner {
         if (entity is! File || !entity.path.endsWith('.dart')) {
           continue;
         }
-        final String relative = p.relative(entity.path, from: projectPath);
+        final String relative = p.relative(entity.path, from: project.path);
         if (_isExcluded(relative)) {
           continue;
         }
@@ -115,7 +117,7 @@ class FlutterSastScanner {
 
     if (options.includeAndroid) {
       final File manifest = File(
-        p.join(projectPath, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+        p.join(project.path, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
       );
       if (await manifest.exists()) {
         final String content = await manifest.readAsString();
@@ -125,7 +127,7 @@ class FlutterSastScanner {
 
     if (options.includeIos) {
       final File plist = File(
-        p.join(projectPath, 'ios', 'Runner', 'Info.plist'),
+        p.join(project.path, 'ios', 'Runner', 'Info.plist'),
       );
       if (await plist.exists()) {
         final String content = await plist.readAsString();
@@ -134,7 +136,7 @@ class FlutterSastScanner {
     }
 
     if (options.includePubspec) {
-      final File pubspec = File(p.join(projectPath, 'pubspec.yaml'));
+      final File pubspec = File(p.join(project.path, 'pubspec.yaml'));
       if (await pubspec.exists()) {
         final String content = await pubspec.readAsString();
         _addFiltered(findings, PubspecAnalyzer().analyze(content));
@@ -149,7 +151,8 @@ class FlutterSastScanner {
     sw.stop();
 
     return ScanReport(
-      projectPath: projectPath,
+      projectPath: project.path,
+      projectName: project.name,
       scannedAt: DateTime.now(),
       vulnerabilities: findings,
       filesScanned: filesScanned,

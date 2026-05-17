@@ -41,6 +41,15 @@ void main() {
       expect(results.first.severity, Severity.critical);
     });
 
+    test('does not duplicate Firebase key as generic API key on same line', () {
+      const String code =
+          'apiKey: "AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q";';
+      final List<Vulnerability> results =
+          rule.analyze('lib/backend/firebase/firebase_config.dart', code);
+      expect(results.length, 1);
+      expect(results.single.title, contains('Firebase'));
+    });
+
     test('skips commented lines', () {
       const String code =
           "// const firebaseApiKey = 'AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q';";
@@ -216,6 +225,7 @@ dependencies:
     ScanReport reportWith(List<Vulnerability> vulns) {
       return ScanReport(
         projectPath: '/tmp/project',
+        projectName: 'test_project',
         scannedAt: now,
         vulnerabilities: vulns,
         filesScanned: 1,

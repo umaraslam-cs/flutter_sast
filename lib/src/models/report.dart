@@ -5,7 +5,12 @@ import 'vulnerability.dart';
 
 /// Aggregate scan result returned by [FlutterSastScanner.scan].
 class ScanReport {
+  /// Absolute path to the scanned project root.
   final String projectPath;
+
+  /// Package name from `pubspec.yaml`, or the project directory name.
+  final String projectName;
+
   final DateTime scannedAt;
   final List<Vulnerability> vulnerabilities;
   final int filesScanned;
@@ -13,6 +18,7 @@ class ScanReport {
 
   const ScanReport({
     required this.projectPath,
+    required this.projectName,
     required this.scannedAt,
     required this.vulnerabilities,
     required this.filesScanned,
@@ -65,6 +71,7 @@ class ScanReport {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'projectPath': projectPath,
+      'projectName': projectName,
       'scannedAt': scannedAt.toIso8601String(),
       'filesScanned': filesScanned,
       'scanDurationMs': scanDuration.inMilliseconds,

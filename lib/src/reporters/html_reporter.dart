@@ -55,7 +55,7 @@ class HtmlReporter {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>flutter_sast | ${_escape(report.projectPath)}</title>
+<title>flutter_sast | ${_escape(report.projectName)}</title>
 <style>
 :root {
   --bg: #0f1117;
@@ -246,7 +246,8 @@ $body
 <header class="report">
   <h1>flutter_sast | Security Scan Report</h1>
   <div class="meta">
-    <div><strong>Project:</strong> ${_escape(report.projectPath)}</div>
+    <div><strong>Project:</strong> ${_escape(report.projectName)}</div>
+    <div><strong>Location:</strong> ${_escape(report.projectPath)}</div>
     <div><strong>Scanned:</strong> ${_escape(report.scannedAt.toIso8601String())}</div>
     <div><strong>Files scanned:</strong> ${report.filesScanned}</div>
     <div><strong>Duration:</strong> ${report.scanDuration.inMilliseconds} ms</div>

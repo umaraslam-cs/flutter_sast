@@ -35,7 +35,8 @@ class ConsoleReporter {
       _c('${_bold}flutter_sast | Security Scan Report$_reset', _magenta),
     );
     out.writeln(_c(_sep, _magenta));
-    out.writeln('Project   : ${report.projectPath}');
+    out.writeln('Project   : ${report.projectName}');
+    out.writeln('Location  : ${report.projectPath}');
     out.writeln('Scanned   : ${report.scannedAt.toIso8601String()}');
     out.writeln('Files     : ${report.filesScanned}');
     out.writeln('Duration  : ${report.scanDuration.inMilliseconds} ms');

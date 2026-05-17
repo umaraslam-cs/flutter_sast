@@ -16,6 +16,7 @@ class AndroidManifestAnalyzer {
   static final RegExp _exportedTag = RegExp(
     r'<[^>]*android:exported\s*=\s*"true"[^>]*>',
   );
+  static final RegExp _androidName = RegExp(r'android:name\s*=\s*"([^"]+)"');
   static final RegExp _externalStorage = RegExp(
     r'(?:READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE)',
   );
@@ -89,12 +90,13 @@ class AndroidManifestAnalyzer {
         final String window = content.substring(match.start, searchEnd);
         if (window.contains('android.intent.action.MAIN')) continue;
 
-        findings.add(const Vulnerability(
+        final String component = _androidName.firstMatch(tag)?.group(1) ?? tag;
+        findings.add(Vulnerability(
           ruleId: 'AND-004',
           title: 'Exported component without permission',
           description:
-              'A component is declared with android:exported="true" but '
-              'does not require an android:permission. Any installed app '
+              'Component "$component" is declared with android:exported="true" '
+              'but does not require an android:permission. Any installed app '
               'can invoke it.',
           recommendation:
               'Add an android:permission attribute or set android:exported '
@@ -103,6 +105,8 @@ class AndroidManifestAnalyzer {
           filePath: filePath,
           category: _category,
           severity: Severity.high,
+          lineNumber: _lineNumberAt(content, match.start),
+          snippet: _truncate(tag, 120),
           cwe: 'CWE-926',
           owasp: 'M2: Inadequate Supply Chain Security',
         ));
@@ -165,5 +169,15 @@ class AndroidManifestAnalyzer {
     }
 
     return findings;
+  }
+
+  static int _lineNumberAt(String content, int offset) =>
+      content.substring(0, offset).split('\n').length;
+
+  static String _truncate(String value, int maxLength) {
+    if (value.length <= maxLength) {
+      return value;
+    }
+    return '${value.substring(0, maxLength - 3)}...';
   }
 }

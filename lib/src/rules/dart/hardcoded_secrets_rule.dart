@@ -38,7 +38,7 @@ class HardcodedSecretsRule extends FilePatternRule {
     _SecretPattern(
       name: 'Generic API Key',
       regex: RegExp(
-        r'''(?:api[_-]?key|apikey|api[_-]?secret)\s*[=:]\s*["']([A-Za-z0-9_\-]{16,})["']''',
+        r'''(?:api[_-]?key|apikey|api[_-]?secret)\s*[=:]\s*["'](?!AIza)([A-Za-z0-9_\-]{16,})["']''',
         caseSensitive: false,
       ),
       severity: Severity.critical,
@@ -165,6 +165,7 @@ class HardcodedSecretsRule extends FilePatternRule {
           cwe: pattern.cwe,
           owasp: _owasp,
         ));
+        break;
       }
     }
 

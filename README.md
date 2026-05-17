@@ -25,15 +25,22 @@ The package targets **Dart SDK 2.17+**, which matches **Flutter 3.0.0** (Dart 2.
 dart pub global activate flutter_sast
 ```
 
-Add the Dart global bin directory to your `PATH` (once per machine, or add to `~/.zshrc` / `~/.bashrc`):
+If `flutter_sast` is not recognized after installation, add Dart’s global bin directory to your `PATH`:
 
 ```bash
 export PATH="$PATH:$HOME/.pub-cache/bin"
 ```
 
-On Windows (PowerShell), add `%LOCALAPPDATA%\Pub\Cache\bin` to your user `Path` environment variable, then open a new terminal.
+For permanent setup, add that line to your `~/.zshrc`, `~/.bashrc`, or shell profile.
 
-Verify: `flutter_sast -v`
+On Windows, add `%LOCALAPPDATA%\Pub\Cache\bin` to your user **Path** environment variable, then restart your terminal.
+
+Verify installation:
+
+```bash
+flutter_sast -v
+dart pub global list   # should include flutter_sast
+```
 
 ### As a dev dependency
 
@@ -58,6 +65,17 @@ Arguments after `flutter_sast` are forwarded to the executable; use `--` if your
 ```bash
 dart run flutter_sast -- scan .
 ```
+
+## Quick start
+
+From your Flutter project root:
+
+```bash
+dart pub global activate flutter_sast
+flutter_sast .
+```
+
+Open `flutter_sast_report.html` in a browser, or read the console summary in the terminal.
 
 ## Usage
 

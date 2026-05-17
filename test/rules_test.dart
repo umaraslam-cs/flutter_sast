@@ -18,13 +18,21 @@ void main() {
   group('HardcodedSecretsRule', () {
     final HardcodedSecretsRule rule = HardcodedSecretsRule();
 
-    test('detects Firebase API key as MEDIUM', () {
+    test('detects Firebase API key as INFO with low confidence', () {
       const String code =
           "const firebaseValue = 'AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q';";
       final List<Vulnerability> results =
           rule.analyze('lib/firebase.dart', code);
       expect(results, isNotEmpty);
-      expect(results.first.severity, Severity.medium);
+      expect(results.first.severity, Severity.info);
+      expect(results.first.confidence, FindingConfidence.low);
+    });
+
+    test('skips mock api key values', () {
+      const String code = 'final apiKey = "test_key_1234567890";';
+      final List<Vulnerability> results =
+          rule.analyze('lib/mock.dart', code);
+      expect(results, isEmpty);
     });
 
     test('detects RevenueCat public key', () {

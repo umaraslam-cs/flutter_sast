@@ -2,6 +2,7 @@
 
 import 'dart:io';
 
+import '../models/finding_confidence.dart';
 import '../models/report.dart';
 import '../version.dart';
 import '../models/severity.dart';
@@ -120,7 +121,11 @@ class ConsoleReporter {
   void _writeFinding(StringBuffer out, Vulnerability v) {
     final String sevColor = v.severity.ansiColor;
     final String sevTag = _c('[${v.severity.label}]', sevColor);
-    out.writeln('$sevTag $_bold${v.ruleId}$_reset  ${v.title}');
+    final String conf =
+        v.confidence == FindingConfidence.high
+            ? ''
+            : ' ${_dim}[confidence: ${v.confidence.label}]$_reset';
+    out.writeln('$sevTag $_bold${v.ruleId}$_reset  ${v.title}$conf');
     final String location = v.lineNumber != null
         ? '${v.filePath}:${v.lineNumber}'
         : v.filePath;

@@ -1,5 +1,7 @@
 // lib/src/rules/dart/hardcoded_secrets_rule.dart
 
+import '../../analysis/line_context.dart';
+import '../../models/finding_confidence.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
 import '../base_rule.dart';
@@ -8,12 +10,14 @@ class _SecretPattern {
   final String name;
   final RegExp regex;
   final Severity severity;
+  final FindingConfidence confidence;
   final String cwe;
 
   const _SecretPattern({
     required this.name,
     required this.regex,
     required this.severity,
+    required this.confidence,
     required this.cwe,
   });
 }
@@ -42,12 +46,14 @@ class HardcodedSecretsRule extends FilePatternRule {
         caseSensitive: false,
       ),
       severity: Severity.critical,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'AWS Access Key ID',
       regex: RegExp(r'AKIA[0-9A-Z]{16}'),
       severity: Severity.critical,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
@@ -57,12 +63,14 @@ class HardcodedSecretsRule extends FilePatternRule {
         caseSensitive: false,
       ),
       severity: Severity.critical,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'Firebase API Key',
       regex: RegExp(r'AIza[0-9A-Za-z\-_]{35}'),
-      severity: Severity.medium,
+      severity: Severity.info,
+      confidence: FindingConfidence.low,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
@@ -72,34 +80,39 @@ class HardcodedSecretsRule extends FilePatternRule {
         caseSensitive: false,
       ),
       severity: Severity.medium,
+      confidence: FindingConfidence.low,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'RevenueCat API Key',
       regex: RegExp(r'(?:goog_|appl_)[A-Za-z0-9]{10,}'),
-      severity: Severity.medium,
+      severity: Severity.info,
+      confidence: FindingConfidence.low,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'Google OAuth Client ID',
       regex: RegExp(
           r'[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com'),
-      severity: Severity.high,
+      severity: Severity.medium,
+      confidence: FindingConfidence.medium,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'Private Key Block',
       regex: RegExp(r'-----BEGIN (?:RSA|EC|DSA|OPENSSH) PRIVATE KEY'),
       severity: Severity.critical,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-321',
     ),
     _SecretPattern(
       name: 'Hardcoded Password',
       regex: RegExp(
-        r'''(?:password|passwd|pwd)\s*[=:]\s*["'](?!.*\$\{)[^"']{6,}["']''',
+        r'''(?:password|passwd|pwd)\s*[=:]\s*["'](?!.*\$\{)([^"']{6,})["']''',
         caseSensitive: false,
       ),
       severity: Severity.high,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-259',
     ),
     _SecretPattern(
@@ -109,12 +122,14 @@ class HardcodedSecretsRule extends FilePatternRule {
         caseSensitive: false,
       ),
       severity: Severity.high,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'Stripe Secret Key',
       regex: RegExp(r'sk_live_[0-9a-zA-Z]{24,}'),
       severity: Severity.critical,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
@@ -124,24 +139,28 @@ class HardcodedSecretsRule extends FilePatternRule {
         caseSensitive: false,
       ),
       severity: Severity.high,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'SendGrid API Key',
       regex: RegExp(r'SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}'),
       severity: Severity.high,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'Slack Token',
       regex: RegExp(r'xox[baprs]-[0-9]{12}-[0-9]{12}-[a-zA-Z0-9]{24}'),
       severity: Severity.high,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
       name: 'GitHub Token',
       regex: RegExp(r'ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{82}'),
       severity: Severity.critical,
+      confidence: FindingConfidence.high,
       cwe: 'CWE-798',
     ),
   ];
@@ -155,9 +174,16 @@ class HardcodedSecretsRule extends FilePatternRule {
       final String line = lines[i];
       if (line.trim().isEmpty || shouldSkipLineForAnalysis(line)) continue;
 
+      final LineContextKind kind = LineContext.classify(line);
+      if (kind == LineContextKind.testMock) continue;
+      if (kind == LineContextKind.uiString) continue;
+
       for (final _SecretPattern pattern in _patterns) {
         final Match? match = pattern.regex.firstMatch(line);
         if (match == null) {
+          continue;
+        }
+        if (_isPlaceholderMatch(pattern, match)) {
           continue;
         }
 
@@ -169,6 +195,7 @@ class HardcodedSecretsRule extends FilePatternRule {
           filePath: filePath,
           category: category,
           severity: pattern.severity,
+          confidence: pattern.confidence,
           lineNumber: i + 1,
           snippet: _redactSnippet(line, match),
           cwe: pattern.cwe,
@@ -179,6 +206,20 @@ class HardcodedSecretsRule extends FilePatternRule {
     }
 
     return findings;
+  }
+
+  bool _isPlaceholderMatch(_SecretPattern pattern, Match match) {
+    final String? captured =
+        match.groupCount >= 1 ? match.group(1) : match.group(0);
+    if (captured == null) {
+      return false;
+    }
+    if (pattern.name == 'Generic API Key' ||
+        pattern.name == 'Hardcoded Password' ||
+        pattern.name == 'Bearer Token') {
+      return LineContext.isPlaceholderSecretValue(captured);
+    }
+    return false;
   }
 
   String _descriptionFor(_SecretPattern pattern) {

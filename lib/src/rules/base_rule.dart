@@ -1,5 +1,6 @@
 // lib/src/rules/base_rule.dart
 
+import '../analysis/line_context.dart';
 import '../models/vulnerability.dart';
 
 /// Sensitive-data keyword pattern shared across Dart rules.
@@ -57,6 +58,9 @@ abstract class FilePatternRule extends SastRule {
   /// Skips [Vulnerability] metadata and rule-internal helper lines so rule
   /// implementation files are not flagged when this package scans itself.
   bool shouldSkipLineForAnalysis(String line) {
+    if (LineContext.isTestMockLine(line)) {
+      return true;
+    }
     final String t = line.trim();
     return t.startsWith('title:') ||
         t.startsWith('description:') ||

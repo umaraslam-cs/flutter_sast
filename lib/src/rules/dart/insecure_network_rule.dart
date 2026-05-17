@@ -1,5 +1,6 @@
 // lib/src/rules/dart/insecure_network_rule.dart
 
+import '../../analysis/line_context.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
 import '../base_rule.dart';
@@ -56,7 +57,7 @@ class InsecureNetworkRule extends FilePatternRule {
 
       for (final Match match in _httpUrl.allMatches(line)) {
         final String host = match.group(1) ?? '';
-        if (_isLocalHost(host)) continue;
+        if (LineContext.isDevOrLocalHost(host)) continue;
         findings.add(Vulnerability(
           ruleId: 'DART-002',
           title: 'Insecure HTTP URL',
@@ -160,18 +161,4 @@ class InsecureNetworkRule extends FilePatternRule {
     }
   }
 
-  bool _isLocalHost(String host) {
-    // Strip port suffix before comparing.
-    final String h = host.contains(':') ? host.split(':').first : host;
-    if (h == 'localhost' || h == '127.0.0.1' || h == '::1') return true;
-    // RFC-1918: 10.0.0.0/8
-    if (RegExp(r'^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$').hasMatch(h)) return true;
-    // RFC-1918: 172.16.0.0/12
-    if (RegExp(r'^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$').hasMatch(h)) {
-      return true;
-    }
-    // RFC-1918: 192.168.0.0/16
-    if (RegExp(r'^192\.168\.\d{1,3}\.\d{1,3}$').hasMatch(h)) return true;
-    return false;
-  }
 }

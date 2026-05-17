@@ -1,5 +1,7 @@
 // lib/src/rules/dart/insecure_storage_rule.dart
 
+import '../../analysis/line_context.dart';
+import '../../models/finding_confidence.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
 import '../base_rule.dart';
@@ -20,18 +22,9 @@ class InsecureStorageRule extends FilePatternRule {
 
   static const String _owasp = 'M9: Insecure Data Storage';
 
-  // Keyword filter is the shared pattern from base_rule.dart.
-  static final RegExp _prefsSensitiveKey = sharedPrefsSensitiveKey;
-
-  static final RegExp _sharedPrefsWrite = RegExp(
-    r'(?:SharedPreferences|prefs)\b.*\.(?:setString|setInt|setBool)\s*\(',
-  );
-
   static final RegExp _getStorageWrite = RegExp(
     r'\bGetStorage\b\s*(?:\(\s*\))?\.write\s*\(',
   );
-
-  static final RegExp _logCall = RegExp(r'(?:print|debugPrint|log)\s*\(');
 
   @override
   List<Vulnerability> analyze(String filePath, String content) {
@@ -43,21 +36,21 @@ class InsecureStorageRule extends FilePatternRule {
       if (line.trim().isEmpty || shouldSkipLineForAnalysis(line)) continue;
       final int lineNo = i + 1;
 
-      if (_sharedPrefsWrite.hasMatch(line) &&
-          _prefsSensitiveKey.hasMatch(line)) {
+      if (LineContext.isSensitivePrefsWrite(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-003',
           title: 'SharedPreferences stores sensitive data in cleartext',
           description:
               'SharedPreferences stores values in an unencrypted XML / plist '
-              'on device. Sensitive data such as passwords or tokens should '
-              'never be persisted there.',
+              'on device. High-risk keys (tokens, passwords, secrets) should '
+              'not be persisted there.',
           recommendation:
-              'Use flutter_secure_storage (Keystore / Keychain) for any '
-              'sensitive value.',
+              'Use flutter_secure_storage (Keystore / Keychain) for tokens '
+              'and credentials.',
           filePath: filePath,
           category: category,
           severity: Severity.high,
+          confidence: FindingConfidence.medium,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-312',
@@ -66,7 +59,7 @@ class InsecureStorageRule extends FilePatternRule {
       }
 
       if (_getStorageWrite.hasMatch(line) &&
-          _prefsSensitiveKey.hasMatch(line)) {
+          LineContext.prefsHighRiskKey.hasMatch(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-003b',
           title: 'GetStorage stores sensitive data in cleartext',
@@ -79,6 +72,7 @@ class InsecureStorageRule extends FilePatternRule {
           filePath: filePath,
           category: category,
           severity: Severity.high,
+          confidence: FindingConfidence.medium,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-312',
@@ -86,19 +80,20 @@ class InsecureStorageRule extends FilePatternRule {
         ));
       }
 
-      if (_logCall.hasMatch(line) && _logsSensitiveData(line)) {
+      if (LineContext.logsSensitiveValue(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-003d',
           title: 'Sensitive data written to log output',
           description:
-              'Sensitive data appears to be passed to print / debugPrint / '
-              'log. Logs are persisted by the OS and can leak credentials.',
+              'A credential value appears to be interpolated into print / '
+              'debugPrint / log output. Logs can leak secrets to device logs.',
           recommendation:
               'Redact sensitive fields before logging or remove the log '
               'entirely in production builds.',
           filePath: filePath,
           category: category,
           severity: Severity.medium,
+          confidence: FindingConfidence.high,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-532',
@@ -108,14 +103,5 @@ class InsecureStorageRule extends FilePatternRule {
     }
 
     return findings;
-  }
-
-  /// Requires interpolated values; static log text mentioning "password" alone
-  /// is not treated as leaking credentials.
-  static bool _logsSensitiveData(String line) {
-    if (!line.contains(r'$') && !line.contains(r'${')) {
-      return false;
-    }
-    return _prefsSensitiveKey.hasMatch(line);
   }
 }

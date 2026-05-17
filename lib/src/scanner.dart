@@ -143,6 +143,8 @@ class FlutterSastScanner {
       }
     }
 
+    _dedupeFindings(findings);
+
     findings.sort(
       (Vulnerability a, Vulnerability b) =>
           b.severity.score.compareTo(a.severity.score),
@@ -158,6 +160,23 @@ class FlutterSastScanner {
       filesScanned: filesScanned,
       scanDuration: sw.elapsed,
     );
+  }
+
+  /// Keeps one finding per rule + file + line (highest severity wins).
+  void _dedupeFindings(List<Vulnerability> findings) {
+    final Map<String, Vulnerability> unique = <String, Vulnerability>{};
+    for (final Vulnerability v in findings) {
+      final String key =
+          '${v.ruleId}|${v.filePath}|${v.lineNumber ?? 0}';
+      final Vulnerability? existing = unique[key];
+      if (existing == null ||
+          v.severity.score > existing.severity.score) {
+        unique[key] = v;
+      }
+    }
+    findings
+      ..clear()
+      ..addAll(unique.values);
   }
 
   /// Appends [incoming] to [sink], applying the `--rules` filter when active.

@@ -1,5 +1,6 @@
 // lib/src/rules/dart/weak_crypto_rule.dart
 
+import '../../analysis/line_context.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
 import '../base_rule.dart';
@@ -26,10 +27,6 @@ class WeakCryptoRule extends FilePatternRule {
       RegExp(r'\bsha' r'1\b|\bsha_1\b', caseSensitive: false);
   static const String _insecureRandom = 'Random' '()';
   static const String _ecbMode = 'EC' 'B';
-  static final RegExp _securityKeyword = RegExp(
-    r'token|\bkey\b|salt|nonce|\biv\b|\botp\b|randomBytes',
-    caseSensitive: false,
-  );
   static final RegExp _hardcodedIv = RegExp(
     r'(?:iv|salt|nonce)\s*=\s*(?:Uint8List\.fromList\s*)?\[(?:\d+\s*,\s*){4,}',
   );
@@ -87,9 +84,9 @@ class WeakCryptoRule extends FilePatternRule {
           !line.contains('Random.secure()')) {
         final int windowStart = (i - 5).clamp(0, lines.length - 1);
         final int windowEnd = (i + 5).clamp(0, lines.length - 1);
-        final String context =
-            lines.sublist(windowStart, windowEnd + 1).join('\n');
-        if (_securityKeyword.hasMatch(context)) {
+        final List<String> window =
+            lines.sublist(windowStart, windowEnd + 1);
+        if (LineContext.isSecurityRandomContext(line, window)) {
           findings.add(Vulnerability(
             ruleId: 'DART-004c',
             title: 'Use of insecure Random' '() for security material',

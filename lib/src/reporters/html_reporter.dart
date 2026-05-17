@@ -335,6 +335,10 @@ $body
       metaParts.write('  &middot;  ');
       metaParts.write('<strong>OWASP:</strong> ${_escape(v.owasp!)}');
     }
+    metaParts.write('  &middot;  ');
+    metaParts.write(
+      '<strong>Confidence:</strong> ${_escape(v.confidence.label)}',
+    );
     buf.writeln('  <div class="meta">${metaParts.toString()}</div>');
     buf.writeln(
         '  <div class="description">${_escape(v.description)}</div>');

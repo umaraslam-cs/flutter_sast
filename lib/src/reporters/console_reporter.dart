@@ -21,7 +21,10 @@ const String _sep =
 class ConsoleReporter {
   final bool useColor;
 
-  ConsoleReporter({this.useColor = true});
+  /// When [useColor] is omitted it defaults to `stdout.hasTerminal` so that
+  /// piped output (e.g. `flutter_sast scan > report.txt`) does not contain
+  /// raw ANSI escape codes.
+  ConsoleReporter({bool? useColor}) : useColor = useColor ?? stdout.hasTerminal;
 
   void report(ScanReport report) {
     final StringBuffer out = StringBuffer();

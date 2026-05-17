@@ -20,10 +20,8 @@ class InsecureStorageRule extends FilePatternRule {
 
   static const String _owasp = 'M9: Insecure Data Storage';
 
-  static final RegExp _sensitiveKeyword = RegExp(
-    r'password|token|secret|key|credential|auth|pin|ssn|credit.?card|cvv|session',
-    caseSensitive: false,
-  );
+  // Keyword filter is the shared pattern from base_rule.dart.
+  static final RegExp _sensitiveKeyword = sharedSensitiveKeyword;
 
   static final RegExp _sharedPrefsWrite = RegExp(
     r'(?:SharedPreferences|prefs)\b.*\.(?:setString|setInt|setBool)\s*\(',
@@ -41,15 +39,13 @@ class InsecureStorageRule extends FilePatternRule {
   @override
   List<Vulnerability> analyze(String filePath, String content) {
     final List<Vulnerability> findings = <Vulnerability>[];
-    final List<String> lines = content.split('\n');
+    final List<String> lines = stripComments(content.split('\n'));
     final bool hasHiveEncryption =
         content.contains('HiveAesCipher') || content.contains('encryptionCipher');
 
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      if (line.trimLeft().startsWith('//')) {
-        continue;
-      }
+      if (line.trim().isEmpty) continue;
       final int lineNo = i + 1;
       final bool hasSensitive = _sensitiveKeyword.hasMatch(line);
       if (!hasSensitive) {

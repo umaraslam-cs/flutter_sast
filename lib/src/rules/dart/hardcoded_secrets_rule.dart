@@ -104,7 +104,10 @@ class HardcodedSecretsRule extends FilePatternRule {
     ),
     _SecretPattern(
       name: 'Twilio Account SID',
-      regex: RegExp(r'AC[a-zA-Z0-9]{32}'),
+      regex: RegExp(
+        r'''(?:account[_-]?sid|twilio[_-]?(?:account[_-]?)?sid)\s*[=:]\s*["'](AC[a-zA-Z0-9]{32})["']''',
+        caseSensitive: false,
+      ),
       severity: Severity.high,
       cwe: 'CWE-798',
     ),
@@ -131,13 +134,11 @@ class HardcodedSecretsRule extends FilePatternRule {
   @override
   List<Vulnerability> analyze(String filePath, String content) {
     final List<Vulnerability> findings = <Vulnerability>[];
-    final List<String> lines = content.split('\n');
+    final List<String> lines = stripComments(content.split('\n'));
 
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      if (line.trimLeft().startsWith('//')) {
-        continue;
-      }
+      if (line.trim().isEmpty) continue;
 
       for (final _SecretPattern pattern in _patterns) {
         final Match? match = pattern.regex.firstMatch(line);

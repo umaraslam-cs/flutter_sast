@@ -27,12 +27,14 @@ class PubspecAnalyzer {
   static const List<_RiskyDep> _risky = <_RiskyDep>[
     _RiskyDep(
       'http',
-      'Versions below 1.0.0 lack TLS security improvements',
+      'The http package makes cleartext HTTP easy to use accidentally; '
+          'ensure all request URLs use HTTPS and pin to the latest version.',
       Severity.low,
     ),
     _RiskyDep(
       'dio',
-      'Versions below 5.x have certificate validation issues',
+      'Dio certificate validation and interceptor configuration can be '
+          'disabled accidentally; audit usage and pin to the latest version.',
       Severity.low,
     ),
     _RiskyDep(
@@ -59,12 +61,13 @@ class PubspecAnalyzer {
           'persisted in plaintext.',
       Severity.medium,
     ),
-    _MissingDep(
-      'ssl_pinning_plugin',
-      'No certificate pinning package detected. Consider pinning the TLS '
-          'certificate / public key for critical endpoints.',
-      Severity.low,
-    ),
+  ];
+
+  // Any of these packages provides recognised certificate-pinning support.
+  static const List<String> _certPinningPackages = <String>[
+    'ssl_pinning_plugin',
+    'http_certificate_pinning',
+    'flutter_certificate_pinning',
   ];
 
   List<Vulnerability> analyze(String content) {
@@ -113,26 +116,32 @@ class PubspecAnalyzer {
       }
     }
 
-    final bool hasObfuscation =
-        content.contains('obfuscate') || content.contains('split-debug-info');
-    if (!hasObfuscation) {
-      findings.add(const Vulnerability(
-        ruleId: 'DEPS-003',
-        title: 'Release builds do not appear to use obfuscation',
+    // Certificate pinning: accept any recognised pinning package, not just one.
+    final bool hasPinning =
+        _certPinningPackages.any((String pkg) => declared.contains(pkg));
+    if (!hasPinning) {
+      findings.add(Vulnerability(
+        ruleId: 'DEPS-002',
+        title: 'No certificate-pinning package detected',
         description:
-            'No reference to --obfuscate or --split-debug-info was found in '
-            'pubspec.yaml. Without obfuscation, Dart symbols are easy to '
-            'recover from a release build.',
+            'None of the recognised certificate-pinning packages '
+            '(${_certPinningPackages.join(", ")}) were found. '
+            'Consider pinning the TLS certificate or public key for '
+            'critical endpoints.',
         recommendation:
-            'Build releases with `flutter build apk --obfuscate '
-            '--split-debug-info=build/debug-info`.',
+            'Add a certificate-pinning package and configure it for '
+            'your critical API hosts.',
         filePath: filePath,
         category: _category,
         severity: Severity.low,
-        cwe: 'CWE-693',
-        owasp: 'M7: Client Code Quality',
+        cwe: 'CWE-295',
+        owasp: 'M3: Insecure Communication',
       ));
     }
+
+    // Note: --obfuscate / --split-debug-info are flutter build CLI flags, not
+    // pubspec entries, so they cannot be reliably detected here. Users should
+    // add these flags to their CI/CD build scripts.
 
     return findings;
   }

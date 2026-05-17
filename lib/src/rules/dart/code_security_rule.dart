@@ -18,33 +18,28 @@ class CodeSecurityRule extends FilePatternRule {
   @override
   List<String> get applicableExtensions => const <String>['.dart'];
 
+  // Only the sqflite raw-SQL methods are unambiguously SQL sinks.
+  // Generic names like `execute` and `query` match too many non-SQL APIs.
   static final RegExp _sqlInjection = RegExp(
-    r'''(?:rawQuery|execute|query)\s*\(\s*["'].*\$\{?''',
+    r'''(?:rawQuery|rawDelete|rawUpdate|rawInsert|execSQL)\s*\(\s*["'].*\$\{?''',
   );
 
+  // Matches File(...) containing any Dart string interpolation ($var or ${expr}).
+  // The exclusion check below skips calls that go through a path-join helper.
   static final RegExp _pathTraversal = RegExp(
-    r'File\(\s*.*\$\{?(?:path|dir|folder|name)\}?\s*\)',
+    r'File\([^)]*\$(?:\{[^}]+\}|[A-Za-z_]\w*)[^)]*\)',
   );
 
-  static final RegExp _sensitiveKeyword = RegExp(
-    r'password|token|secret|key|credential|auth|pin|ssn|credit.?card|cvv|session',
-    caseSensitive: false,
-  );
+  static final RegExp _sensitiveKeyword = sharedSensitiveKeyword;
 
   @override
   List<Vulnerability> analyze(String filePath, String content) {
     final List<Vulnerability> findings = <Vulnerability>[];
-    final List<String> lines = content.split('\n');
+    final List<String> lines = stripComments(content.split('\n'));
 
-    int offset = 0;
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      final int lineStart = offset;
-      offset += line.length + 1;
-
-      if (line.trimLeft().startsWith('//')) {
-        continue;
-      }
+      if (line.trim().isEmpty) continue;
       final int lineNo = i + 1;
 
       if (_sqlInjection.hasMatch(line)) {
@@ -69,15 +64,14 @@ class CodeSecurityRule extends FilePatternRule {
       }
 
       if (_pathTraversal.hasMatch(line) &&
-          !line.contains('p.join') &&
-          !line.contains('path.join')) {
+          !line.contains('.join(')) {
         findings.add(Vulnerability(
           ruleId: 'DART-005b',
           title: 'Potential path traversal',
           description:
               'A File path is built from an interpolated expression without '
-              'going through path.join. Attacker controlled segments can '
-              'escape the intended directory via ".." sequences.',
+              'going through a path-join helper. Attacker-controlled segments '
+              'can escape the intended directory via ".." sequences.',
           recommendation:
               'Use package:path `p.join` and canonicalize / validate the '
               'resulting path before reading or writing.',
@@ -87,7 +81,7 @@ class CodeSecurityRule extends FilePatternRule {
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-22',
-          owasp: 'M4: Insecure Authentication / Authorization',
+          owasp: 'M1: Improper Platform Usage',
         ));
       }
 
@@ -135,9 +129,9 @@ class CodeSecurityRule extends FilePatternRule {
       }
 
       if (line.contains('Clipboard.setData')) {
-        final int windowEnd =
-            (lineStart + 200).clamp(0, content.length);
-        final String window = content.substring(lineStart, windowEnd);
+        final int winStart = (i - 3).clamp(0, lines.length);
+        final int winEnd = (i + 5).clamp(0, lines.length);
+        final String window = lines.sublist(winStart, winEnd).join('\n');
         if (_sensitiveKeyword.hasMatch(window)) {
           findings.add(Vulnerability(
             ruleId: 'DART-005e',

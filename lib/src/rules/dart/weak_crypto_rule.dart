@@ -22,8 +22,10 @@ class WeakCryptoRule extends FilePatternRule {
 
   static final RegExp _md5 = RegExp(r'\bmd5\b', caseSensitive: false);
   static final RegExp _sha1 = RegExp(r'\bsha1\b|\bsha_1\b', caseSensitive: false);
+  // `code` removed (matches virtually every file); word boundaries added to
+  // short tokens that appear inside common non-security identifiers.
   static final RegExp _securityKeyword = RegExp(
-    r'token|key|salt|nonce|iv|otp|code|randomBytes',
+    r'token|\bkey\b|salt|nonce|\biv\b|\botp\b|randomBytes',
     caseSensitive: false,
   );
   static final RegExp _hardcodedIv = RegExp(
@@ -33,13 +35,11 @@ class WeakCryptoRule extends FilePatternRule {
   @override
   List<Vulnerability> analyze(String filePath, String content) {
     final List<Vulnerability> findings = <Vulnerability>[];
-    final List<String> lines = content.split('\n');
+    final List<String> lines = stripComments(content.split('\n'));
 
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      if (line.trimLeft().startsWith('//')) {
-        continue;
-      }
+      if (line.trim().isEmpty) continue;
       final int lineNo = i + 1;
 
       if (_md5.hasMatch(line)) {

@@ -83,6 +83,12 @@ class AndroidManifestAnalyzer {
     for (final RegExpMatch match in _exportedTag.allMatches(content)) {
       final String tag = match.group(0) ?? '';
       if (!tag.contains('android:permission')) {
+        // The main launcher activity must be exported without a permission;
+        // flagging it would be a guaranteed false positive on every project.
+        final int searchEnd = (match.end + 800).clamp(0, content.length);
+        final String window = content.substring(match.start, searchEnd);
+        if (window.contains('android.intent.action.MAIN')) continue;
+
         findings.add(const Vulnerability(
           ruleId: 'AND-004',
           title: 'Exported component without permission',

@@ -23,7 +23,7 @@ class CodeSecurityRule extends FilePatternRule {
   );
 
   static final RegExp _pathTraversal = RegExp(
-    r'File\([^)]*\$(?:\{[^}]+\}|[A-Za-z_]\w*)[^)]*\)',
+    r'(?<![A-Za-z0-9_])File\([^)]*\$(?:\{[^}]+\}|[A-Za-z_]\w*)[^)]*\)',
   );
 
   static final RegExp _sensitiveKeyword = sharedSensitiveKeyword;

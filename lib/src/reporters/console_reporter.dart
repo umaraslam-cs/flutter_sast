@@ -92,6 +92,14 @@ class ConsoleReporter {
     }
 
     out.writeln(_c(_sep, _magenta));
+    out.writeln('');
+    out.writeln(
+      _c(
+        'Heuristic triage scan — review each finding in context; '
+        'not proof of exploitable bugs.',
+        _dim,
+      ),
+    );
     out.writeln('${_dim}flutter_sast v$packageVersion$_reset');
     out.writeln('${_dim}https://github.com/umaraslam-cs/flutter_sast$_reset');
     out.writeln(_c(_sep, _magenta));

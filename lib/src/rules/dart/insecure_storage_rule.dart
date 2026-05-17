@@ -21,7 +21,7 @@ class InsecureStorageRule extends FilePatternRule {
   static const String _owasp = 'M9: Insecure Data Storage';
 
   // Keyword filter is the shared pattern from base_rule.dart.
-  static final RegExp _sensitiveKeyword = sharedSensitiveKeyword;
+  static final RegExp _prefsSensitiveKey = sharedPrefsSensitiveKey;
 
   static final RegExp _sharedPrefsWrite = RegExp(
     r'(?:SharedPreferences|prefs)\b.*\.(?:setString|setInt|setBool)\s*\(',
@@ -42,12 +42,9 @@ class InsecureStorageRule extends FilePatternRule {
       final String line = lines[i];
       if (line.trim().isEmpty || shouldSkipLineForAnalysis(line)) continue;
       final int lineNo = i + 1;
-      final bool hasSensitive = _sensitiveKeyword.hasMatch(line);
-      if (!hasSensitive) {
-        continue;
-      }
 
-      if (_sharedPrefsWrite.hasMatch(line)) {
+      if (_sharedPrefsWrite.hasMatch(line) &&
+          _prefsSensitiveKey.hasMatch(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-003',
           title: 'SharedPreferences stores sensitive data in cleartext',
@@ -68,7 +65,8 @@ class InsecureStorageRule extends FilePatternRule {
         ));
       }
 
-      if (_getStorageWrite.hasMatch(line)) {
+      if (_getStorageWrite.hasMatch(line) &&
+          _prefsSensitiveKey.hasMatch(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-003b',
           title: 'GetStorage stores sensitive data in cleartext',
@@ -88,7 +86,7 @@ class InsecureStorageRule extends FilePatternRule {
         ));
       }
 
-      if (_logCall.hasMatch(line)) {
+      if (_logCall.hasMatch(line) && _logsSensitiveData(line)) {
         findings.add(Vulnerability(
           ruleId: 'DART-003d',
           title: 'Sensitive data written to log output',
@@ -110,5 +108,14 @@ class InsecureStorageRule extends FilePatternRule {
     }
 
     return findings;
+  }
+
+  /// Requires interpolated values; static log text mentioning "password" alone
+  /// is not treated as leaking credentials.
+  static bool _logsSensitiveData(String line) {
+    if (!line.contains(r'$') && !line.contains(r'${')) {
+      return false;
+    }
+    return _prefsSensitiveKey.hasMatch(line);
   }
 }

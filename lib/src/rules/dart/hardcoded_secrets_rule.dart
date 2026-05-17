@@ -62,7 +62,22 @@ class HardcodedSecretsRule extends FilePatternRule {
     _SecretPattern(
       name: 'Firebase API Key',
       regex: RegExp(r'AIza[0-9A-Za-z\-_]{35}'),
-      severity: Severity.high,
+      severity: Severity.medium,
+      cwe: 'CWE-798',
+    ),
+    _SecretPattern(
+      name: 'AppsFlyer Dev Key',
+      regex: RegExp(
+        r'''(?:appsFlyerDevKey|af[_-]?dev[_-]?key|appsflyer[_-]?dev[_-]?key)\s*[=:]\s*["']([^"']{8,})["']''',
+        caseSensitive: false,
+      ),
+      severity: Severity.medium,
+      cwe: 'CWE-798',
+    ),
+    _SecretPattern(
+      name: 'RevenueCat API Key',
+      regex: RegExp(r'(?:goog_|appl_)[A-Za-z0-9]{10,}'),
+      severity: Severity.medium,
       cwe: 'CWE-798',
     ),
     _SecretPattern(
@@ -149,14 +164,8 @@ class HardcodedSecretsRule extends FilePatternRule {
         findings.add(Vulnerability(
           ruleId: ruleId,
           title: '${pattern.name} hardcoded in source',
-          description:
-              'A ${pattern.name} appears to be hardcoded in this file. '
-              'Hardcoded credentials can be extracted from compiled binaries '
-              'and leak to anyone with read access to the source.',
-          recommendation:
-              'Move the secret to a secure runtime store (environment '
-              'variable, encrypted secret manager, or a backend) and rotate '
-              'this credential immediately.',
+          description: _descriptionFor(pattern),
+          recommendation: _recommendationFor(pattern),
           filePath: filePath,
           category: category,
           severity: pattern.severity,
@@ -170,6 +179,45 @@ class HardcodedSecretsRule extends FilePatternRule {
     }
 
     return findings;
+  }
+
+  String _descriptionFor(_SecretPattern pattern) {
+    switch (pattern.name) {
+      case 'Firebase API Key':
+        return 'A Firebase client API key is present in source. These keys '
+            'ship in mobile and web clients; restrict them in Google Cloud '
+            '(API key restrictions, App Check) and enforce Firebase Security '
+            'Rules—not by treating them like rotatable server passwords.';
+      case 'AppsFlyer Dev Key':
+        return 'An AppsFlyer development key appears hardcoded. Restrict usage '
+            'in the AppsFlyer dashboard and avoid treating it as a server secret.';
+      case 'RevenueCat API Key':
+        return 'A RevenueCat public SDK key is hardcoded. Public store keys are '
+            'expected in clients; enforce purchases and entitlements on RevenueCat '
+            'or your backend—never trust local prefs alone for authorization.';
+      default:
+        return 'A ${pattern.name} appears to be hardcoded in this file. '
+            'Hardcoded credentials can be extracted from compiled binaries '
+            'and leak to anyone with read access to the source.';
+    }
+  }
+
+  String _recommendationFor(_SecretPattern pattern) {
+    switch (pattern.name) {
+      case 'Firebase API Key':
+        return 'Enable App Check, tighten Firestore/Storage/Auth rules, and '
+            'apply GCP API key restrictions for your app IDs and platforms.';
+      case 'AppsFlyer Dev Key':
+        return 'Confirm dashboard restrictions and remove dev keys from release '
+            'builds if a separate production key is required.';
+      case 'RevenueCat API Key':
+        return 'Verify entitlements server-side or via RevenueCat; do not use '
+            'local storage flags as the sole paywall gate.';
+      default:
+        return 'Move the secret to a secure runtime store (environment '
+            'variable, encrypted secret manager, or a backend) and rotate '
+            'this credential immediately.';
+    }
   }
 
   String _redactSnippet(String line, Match match) {

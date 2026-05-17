@@ -7,6 +7,8 @@ import 'package:test/test.dart';
 import 'package:flutter_sast/flutter_sast.dart';
 import 'package:flutter_sast/src/analyzers/pubspec_analyzer.dart';
 import 'package:flutter_sast/src/rules/base_rule.dart';
+import 'package:flutter_sast/src/analyzers/android_manifest_analyzer.dart';
+import 'package:flutter_sast/src/rules/dart/code_security_rule.dart';
 import 'package:flutter_sast/src/rules/dart/hardcoded_secrets_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_network_rule.dart';
 import 'package:flutter_sast/src/rules/dart/insecure_storage_rule.dart';
@@ -16,13 +18,21 @@ void main() {
   group('HardcodedSecretsRule', () {
     final HardcodedSecretsRule rule = HardcodedSecretsRule();
 
-    test('detects Firebase API key as HIGH', () {
+    test('detects Firebase API key as MEDIUM', () {
       const String code =
           "const firebaseValue = 'AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q';";
       final List<Vulnerability> results =
           rule.analyze('lib/firebase.dart', code);
       expect(results, isNotEmpty);
-      expect(results.first.severity, Severity.high);
+      expect(results.first.severity, Severity.medium);
+    });
+
+    test('detects RevenueCat public key', () {
+      const String code =
+          'await Purchases.configure(PurchasesConfiguration("goog_abcdefghijklmnop"));';
+      final List<Vulnerability> results =
+          rule.analyze('lib/main.dart', code);
+      expect(results.any((v) => v.title.contains('RevenueCat')), isTrue);
     });
 
     test('detects hardcoded password field', () {
@@ -126,11 +136,54 @@ final x = 1;
       expect(results, isNotEmpty);
     });
 
+    test('does not flag SharedPreferences session counters', () {
+      const String code = '''
+await prefs.setInt(_keySessionCount, currentCount + 1);
+await prefs.setString(_keyLastSessionDate, DateTime.now().toIso8601String());
+''';
+      final List<Vulnerability> results =
+          rule.analyze('lib/app_review_service.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-003'), isEmpty);
+    });
+
+    test('does not flag static log mentioning password without values', () {
+      const String code =
+          "print('Error: update password attempted with no logged in user!');";
+      final List<Vulnerability> results =
+          rule.analyze('lib/firebase_auth_manager.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-003d'), isEmpty);
+    });
+
     test('does not flag generic box.write without GetStorage', () {
       const String code = "await box.write('token', userToken);";
       final List<Vulnerability> results =
           rule.analyze('lib/cache.dart', code);
       expect(results.any((v) => v.ruleId == 'DART-003b'), isFalse);
+    });
+  });
+
+  group('CodeSecurityRule', () {
+    final CodeSecurityRule rule = CodeSecurityRule();
+
+    test('does not flag FFUploadedFile toString as path traversal', () {
+      const String code = '''
+  String toString() =>
+      'FFUploadedFile(name: \$name, bytes: \${bytes?.length ?? 0}, height: \$height,)';
+''';
+      final List<Vulnerability> results =
+          rule.analyze('lib/flutter_flow/uploaded_file.dart', code);
+      expect(results.where((v) => v.ruleId == 'DART-005b'), isEmpty);
+    });
+  });
+
+  group('AndroidManifestAnalyzer', () {
+    test('detects Google Maps API key in manifest', () {
+      const String manifest = '''
+<meta-data android:name="com.google.android.geo.API_KEY"
+    android:value="AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"/>
+''';
+      final findings = AndroidManifestAnalyzer().analyze(manifest);
+      expect(findings.any((v) => v.ruleId == 'AND-008'), isTrue);
     });
   });
 
@@ -250,6 +303,7 @@ dependencies:
         ),
       ]);
       expect(r.securityScore, lessThan(100));
+      expect(r.securityScore, greaterThanOrEqualTo(25));
     });
 
     test('riskLevel == CLEAN with no findings', () {

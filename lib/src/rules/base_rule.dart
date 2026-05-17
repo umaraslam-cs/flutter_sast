@@ -8,7 +8,14 @@ import '../models/vulnerability.dart';
 /// matches inside identifiers like `keyboardType` or `spinner`.
 final RegExp sharedSensitiveKeyword = RegExp(
   r'password|passwd|pwd|token|secret|\bkey\b|credential|\bauth\b|'
-  r'pin\b|ssn|credit.?card|cvv|session',
+  r'pin\b|ssn|credit.?card|cvv|session[_-]?(?:token|id)\b',
+  caseSensitive: false,
+);
+
+/// Keys/values that should not live in [SharedPreferences] (not session counters).
+final RegExp sharedPrefsSensitiveKey = RegExp(
+  r'(?:password|passwd|pwd|token|secret|credential|refresh[_-]?token|'
+  r'api[_-]?key|auth[_-]?token|private[_-]?key|bearer|entitlement)',
   caseSensitive: false,
 );
 

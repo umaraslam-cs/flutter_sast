@@ -34,21 +34,25 @@ class ScanReport {
   int _countBy(Severity severity) =>
       vulnerabilities.where((Vulnerability v) => v.severity == severity).length;
 
-  /// Composite score clamped to the 0..100 range.
+  /// Heuristic hygiene score (0–100), not exploitability.
   ///
-  /// Starts at 100 and subtracts `severity.score * 4` for every finding.
+  /// Findings reduce the score with capped deductions so advisory noise
+  /// (INFO/LOW) does not collapse real projects to 0/100.
   int get securityScore {
-    var score = 100;
-    for (final Vulnerability v in vulnerabilities) {
-      score -= v.severity.score * 4;
-    }
-    if (score < 0) {
-      return 0;
-    }
-    if (score > 100) {
+    if (vulnerabilities.isEmpty) {
       return 100;
     }
-    return score;
+    var deducted = 0;
+    for (final Vulnerability v in vulnerabilities) {
+      deducted += switch (v.severity) {
+        Severity.critical => 15,
+        Severity.high => 7,
+        Severity.medium => 4,
+        Severity.low => 2,
+        Severity.info => 0,
+      };
+    }
+    return 100 - deducted.clamp(0, 75);
   }
 
   /// Highest severity present in the report, or `CLEAN`.

@@ -23,6 +23,17 @@ class AndroidManifestAnalyzer {
   static final RegExp _bootCompleted = RegExp(r'RECEIVE_BOOT_COMPLETED');
   static final RegExp _networkSecurityConfig =
       RegExp(r'android:networkSecurityConfig');
+  static final RegExp _mapsApiKey = RegExp(
+    r'com\.google\.android\.geo\.API_KEY',
+  );
+  static final RegExp _googleApiKeyValue = RegExp(r'AIza[0-9A-Za-z\-_]{35}');
+  static final RegExp _emptyPermission = RegExp(
+    r'android:permission\s*=\s*""|<uses-permission[^>]+android:name\s*=\s*"android\.permission\.\s*"',
+  );
+  static final RegExp _mediaExportComponent = RegExp(
+    r'MediaBrowser|MediaButton|AudioService|just_audio',
+    caseSensitive: false,
+  );
 
   List<Vulnerability> analyze(String content) {
     final List<Vulnerability> findings = <Vulnerability>[];
@@ -91,20 +102,26 @@ class AndroidManifestAnalyzer {
         if (window.contains('android.intent.action.MAIN')) continue;
 
         final String component = _androidName.firstMatch(tag)?.group(1) ?? tag;
+        final bool mediaComponent = _mediaExportComponent.hasMatch(component);
         findings.add(Vulnerability(
           ruleId: 'AND-004',
           title: 'Exported component without permission',
-          description:
-              'Component "$component" is declared with android:exported="true" '
-              'but does not require an android:permission. Any installed app '
-              'can invoke it.',
-          recommendation:
-              'Add an android:permission attribute or set android:exported '
-              'to false if the component is not meant to be invoked by '
-              'other apps.',
+          description: mediaComponent
+              ? 'Component "$component" is exported without a permission. '
+                  'This is common for background audio / media-browser integrations; '
+                  'verify against your audio plugin docs before restricting export.'
+              : 'Component "$component" is declared with android:exported="true" '
+                  'but does not require an android:permission. Review whether '
+                  'other apps should be able to invoke it.',
+          recommendation: mediaComponent
+              ? 'Follow your media plugin documentation (e.g. audio_service). '
+                  'Do not set exported="false" blindly if playback depends on it.'
+              : 'Add an android:permission attribute or set android:exported '
+                  'to false if the component is not meant to be invoked by '
+                  'other apps.',
           filePath: filePath,
           category: _category,
-          severity: Severity.high,
+          severity: mediaComponent ? Severity.low : Severity.medium,
           lineNumber: _lineNumberAt(content, match.start),
           snippet: _truncate(tag, 120),
           cwe: 'CWE-926',
@@ -144,6 +161,42 @@ class AndroidManifestAnalyzer {
         filePath: filePath,
         category: _category,
         severity: Severity.info,
+        cwe: 'CWE-693',
+        owasp: 'M7: Client Code Quality',
+      ));
+    }
+
+    if (_mapsApiKey.hasMatch(content) && _googleApiKeyValue.hasMatch(content)) {
+      findings.add(Vulnerability(
+        ruleId: 'AND-008',
+        title: 'Google Maps API key in AndroidManifest',
+        description:
+            'A Google Maps / Places API key (AIza…) is embedded in the manifest. '
+            'Restrict it in Google Cloud Console (Android app restriction by '
+            'package name + SHA-1).',
+        recommendation:
+            'Apply API key restrictions for this app ID; monitor usage quotas.',
+        filePath: filePath,
+        category: _category,
+        severity: Severity.medium,
+        cwe: 'CWE-798',
+        owasp: 'M9: Insecure Data Storage',
+      ));
+    }
+
+    if (_emptyPermission.hasMatch(content)) {
+      findings.add(const Vulnerability(
+        ruleId: 'AND-009',
+        title: 'Invalid or empty uses-permission entry',
+        description:
+            'The manifest declares a uses-permission with an empty or incomplete '
+            'android:name (e.g. android.permission. with no suffix). This is '
+            'invalid and may cause build or policy issues.',
+        recommendation:
+            'Remove the broken entry or set a valid android.permission name.',
+        filePath: filePath,
+        category: _category,
+        severity: Severity.medium,
         cwe: 'CWE-693',
         owasp: 'M7: Client Code Quality',
       ));

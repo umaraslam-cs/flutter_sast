@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-17
+
+### Changed
+
+- **README:** clearer limitations, example output, heuristic wording, and config notes for pub.dev.
+
+[0.1.1]: https://github.com/umaraslam-cs/flutter_sast/releases/tag/v0.1.1
+
 ## [0.1.0] - 2026-05-17
 
 First release on pub.dev.

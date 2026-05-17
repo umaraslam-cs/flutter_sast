@@ -38,7 +38,7 @@ Or as a dev dependency:
 
 ```yaml
 dev_dependencies:
-  flutter_sast: ^0.1.0
+  flutter_sast: ^0.1.1
 ```
 
 ```bash

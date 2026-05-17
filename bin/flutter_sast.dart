@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:flutter_sast/flutter_sast.dart';
 import 'package:flutter_sast/src/version.dart';
@@ -29,14 +30,25 @@ void _registerScanOptions(ArgParser parser) {
     ..addOption(
       'output',
       abbr: 'o',
-      help: 'Output file path for json / html reports.',
+      help:
+          'Report path: a .json/.html file, a directory (e.g. ./reports/), '
+          'or a basename (writes .json and .html alongside).',
+    )
+    ..addFlag(
+      'quiet',
+      abbr: 'q',
+      negatable: false,
+      defaultsTo: false,
+      help: 'Skip console output (file reports only).',
     )
     ..addMultiOption(
       'format',
       abbr: 'f',
       allowed: <String>['console', 'json', 'html'],
-      defaultsTo: <String>['console'],
-      help: 'One or more output formats.',
+      defaultsTo: <String>['console', 'json', 'html'],
+      help:
+          'Output formats (default: console, json, and html). '
+          'Example: -f json for JSON only.',
     )
     ..addMultiOption(
       'exclude',
@@ -107,6 +119,22 @@ class FlutterSastCommandRunner extends CommandRunner<int> {
   @override
   String? get usageFooter =>
       'https://github.com/umaraslam-cs/flutter_sast';
+
+  /// `flutter_sast` and `flutter_sast .` run [ScanCommand] without typing `scan`.
+  @override
+  Future<int?> run(Iterable<String> args) {
+    return Future.sync(() => runCommand(parse(_effectiveArgs(args.toList()))));
+  }
+
+  List<String> _effectiveArgs(List<String> argList) {
+    if (argList.isEmpty) {
+      return <String>['scan'];
+    }
+    if (argList.first != 'scan' && !commands.containsKey(argList.first)) {
+      return <String>['scan', ...argList];
+    }
+    return argList;
+  }
 }
 
 /// `flutter_sast scan [directory]` — optional project root (default `.`).
@@ -120,7 +148,7 @@ class ScanCommand extends Command<int> {
 
   @override
   String get description =>
-      'Run SAST rules against a Flutter / Dart project root.';
+      'Run SAST rules; console + JSON + HTML reports by default.';
 
   @override
   String get invocation => '${super.invocation} [directory]';
@@ -149,13 +177,23 @@ class ScanCommand extends Command<int> {
     final bool includePubspec = args['pubspec'] as bool;
     final bool failOnHigh = args['fail-on-high'] as bool;
     final bool failOnAny = args['fail-on-any'] as bool;
+    final bool quiet = args['quiet'] as bool;
+    final bool formatExplicit = args.wasParsed('format');
 
-    if (stdout.hasTerminal) {
+    final bool wantsConsole = formats.contains('console') &&
+        !quiet &&
+        (stdout.hasTerminal || formatExplicit);
+    final bool wantsJson = formats.contains('json') ||
+        (output != null && output.endsWith('.json'));
+    final bool wantsHtml = formats.contains('html') ||
+        (output != null && output.endsWith('.html'));
+
+    if (!quiet && stdout.hasTerminal) {
       stdout.writeln(
         '${_ansiBoldPurple}flutter_sast  Scanning $projectPath ...$_ansiReset',
       );
-    } else {
-      stdout.writeln('flutter_sast  Scanning $projectPath ...');
+    } else if (!quiet) {
+      stderr.writeln('flutter_sast  Scanning $projectPath ...');
     }
 
     final ScanOptions options = ScanOptions(
@@ -175,28 +213,28 @@ class ScanCommand extends Command<int> {
       return 2;
     }
 
-    final bool wantsConsole = formats.contains('console');
-    final bool wantsJson = formats.contains('json') ||
-        (output != null && output.endsWith('.json'));
-    final bool wantsHtml = formats.contains('html') ||
-        (output != null && output.endsWith('.html'));
-
     if (wantsConsole) {
       ConsoleReporter().report(report);
     }
     if (wantsJson) {
-      final String target = output != null && output.endsWith('.json')
-          ? output
-          : 'flutter_sast_report.json';
+      final String target = _resolveReportPath(
+        projectPath: projectPath,
+        output: output,
+        extension: '.json',
+        defaultName: 'flutter_sast_report.json',
+      );
       await JsonReporter().writeReport(report, target);
-      stdout.writeln('JSON report written to $target');
+      _writeStatus('JSON report → $target', quiet: quiet);
     }
     if (wantsHtml) {
-      final String target = output != null && output.endsWith('.html')
-          ? output
-          : 'flutter_sast_report.html';
+      final String target = _resolveReportPath(
+        projectPath: projectPath,
+        output: output,
+        extension: '.html',
+        defaultName: 'flutter_sast_report.html',
+      );
       await HtmlReporter().writeReport(report, target);
-      stdout.writeln('HTML report written to $target');
+      _writeStatus('HTML report → $target', quiet: quiet);
     }
 
     if (failOnAny && report.vulnerabilities.isNotEmpty) {
@@ -208,6 +246,48 @@ class ScanCommand extends Command<int> {
 
     return 0;
   }
+}
+
+void _writeStatus(String message, {required bool quiet}) {
+  if (quiet || !stdout.hasTerminal) {
+    stderr.writeln(message);
+  } else {
+    stdout.writeln(message);
+  }
+}
+
+/// Resolves the JSON/HTML report path under [projectPath] unless [-o] targets
+/// that extension, a directory, or a shared basename.
+String _resolveReportPath({
+  required String projectPath,
+  required String? output,
+  required String extension,
+  required String defaultName,
+}) {
+  if (output == null) {
+    return p.join(projectPath, defaultName);
+  }
+  if (output.endsWith(extension)) {
+    return output;
+  }
+
+  final String siblingExt = extension == '.json' ? '.html' : '.json';
+  if (output.endsWith(siblingExt)) {
+    return p.join(p.dirname(output), defaultName);
+  }
+
+  if (output.endsWith('/') || output.endsWith(r'\')) {
+    return p.join(output, defaultName);
+  }
+
+  if (p.extension(output).isEmpty) {
+    if (Directory(output).existsSync()) {
+      return p.join(output, defaultName);
+    }
+    return '$output$extension';
+  }
+
+  return p.join(projectPath, defaultName);
 }
 
 Future<void> main(List<String> arguments) async {

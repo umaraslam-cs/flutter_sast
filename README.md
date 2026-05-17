@@ -3,7 +3,7 @@
 [![Dart SDK](https://img.shields.io/badge/sdk-%3E%3D2.17.0-brightgreen)](https://dart.dev/get-dart)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**flutter_sast** is a static application security testing (SAST) and vulnerability assessment tool for **Flutter** and **Dart** projects. It scans Dart source, `AndroidManifest.xml`, `ios/Runner/Info.plist`, and `pubspec.yaml`, then reports findings in the console, JSON, or a self-contained HTML report.
+**flutter_sast** is a static application security testing (SAST) and vulnerability assessment tool for **Flutter** and **Dart** projects. It scans Dart source, `AndroidManifest.xml`, `ios/Runner/Info.plist`, and `pubspec.yaml`, then prints a console summary and writes `flutter_sast_report.json` and `flutter_sast_report.html` in the project directory (one command, no extra flags).
 
 The package targets **Dart SDK 2.17+**, which matches **Flutter 3.0.0** (Dart 2.17) and all newer stable Flutter releases whose Dart version stays below 4.0.
 
@@ -23,8 +23,17 @@ The package targets **Dart SDK 2.17+**, which matches **Flutter 3.0.0** (Dart 2.
 
 ```bash
 dart pub global activate flutter_sast
+```
+
+Add the Dart global bin directory to your `PATH` (once per machine, or add to `~/.zshrc` / `~/.bashrc`):
+
+```bash
 export PATH="$PATH:$HOME/.pub-cache/bin"
 ```
+
+On Windows (PowerShell), add `%LOCALAPPDATA%\Pub\Cache\bin` to your user `Path` environment variable, then open a new terminal.
+
+Verify: `flutter_sast -v`
 
 ### As a dev dependency
 
@@ -52,16 +61,22 @@ dart run flutter_sast -- scan .
 
 ## Usage
 
-From your **Flutter project root** (where `pubspec.yaml` lives), scan the current directory:
+From your **Flutter project root** (where `pubspec.yaml` lives):
 
 ```bash
+flutter_sast
+# same as:
 flutter_sast scan
+flutter_sast .
 ```
+
+That prints a **console** summary and writes **`flutter_sast_report.json`** and **`flutter_sast_report.html`** in the project directory.
 
 Scan another tree:
 
 ```bash
-flutter_sast scan /path/to/your/flutter_app
+flutter_sast /path/to/your/flutter_app
+# or: flutter_sast scan /path/to/your/flutter_app
 ```
 
 Print the tool version (no subcommand):
@@ -73,16 +88,33 @@ flutter_sast --version
 
 ### Reports
 
-```bash
-# Console (default) + JSON + HTML
-flutter_sast scan . -f console -f json -f html
+By default, every scan produces all three outputs (no extra flags).
 
-# Write to specific files (extension selects default when format omitted)
-flutter_sast scan . -o ./security/report.html
-flutter_sast scan . -o ./security/report.json
+```bash
+flutter_sast               # console + flutter_sast_report.json + .html
+flutter_sast .             # same
 ```
 
-Default output names if you only add `-f json` / `-f html`: `flutter_sast_report.json`, `flutter_sast_report.html`.
+Optional:
+
+```bash
+# CI: files only (no console); JSON/HTML still written
+flutter_sast -q
+
+# JSON only
+flutter_sast -f json
+
+# Both reports under ./security/ (directory)
+flutter_sast -o ./security/
+
+# Shared basename → security/audit.json and security/audit.html
+flutter_sast -o ./security/audit
+
+# Single HTML path; JSON lands in the same folder
+flutter_sast -o ./security/report.html
+```
+
+When stdout is not a terminal (piped or CI), the console summary is skipped automatically; use `-f console` to force it.
 
 ### Scope and CI
 
@@ -96,6 +128,7 @@ All flags below apply to the **`scan`** command (see `flutter_sast scan --help`)
 | `--no-pubspec` | Skip `pubspec.yaml` dependency checks |
 | `-e`, `--exclude` | Extra path prefixes to skip (repeatable) |
 | `-r`, `--rules` | Run only given rule IDs, e.g. `-r DART-001` |
+| `-q`, `--quiet` | Skip console output (file reports only) |
 | `--fail-on-high` | Exit `1` if any **HIGH** or **CRITICAL** finding |
 | `--fail-on-any` | Exit `1` if any finding |
 

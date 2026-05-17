@@ -234,7 +234,7 @@ class ScanCommand extends Command<int> {
         defaultName: 'flutter_sast_report.html',
       );
       await HtmlReporter().writeReport(report, target);
-      _writeStatus('HTML report → $target', quiet: quiet);
+      _writeHtmlReportStatus(target, quiet: quiet);
     }
 
     if (failOnAny && report.vulnerabilities.isNotEmpty) {
@@ -254,6 +254,21 @@ void _writeStatus(String message, {required bool quiet}) {
   } else {
     stdout.writeln(message);
   }
+}
+
+/// Absolute `file://` URI so terminals can open the HTML report in a browser.
+String _htmlReportFileUri(String path) => Uri.file(p.absolute(path)).toString();
+
+/// OSC 8 hyperlink (VS Code, iTerm2, Windows Terminal, etc.).
+String _terminalHyperlink(String url, String label) =>
+    '\x1B]8;;$url\x1B\\$label\x1B]8;;\x1B\\';
+
+void _writeHtmlReportStatus(String target, {required bool quiet}) {
+  final String fileUri = _htmlReportFileUri(target);
+  final String line = stdout.hasTerminal && !quiet
+      ? 'HTML report → ${_terminalHyperlink(fileUri, fileUri)}'
+      : 'HTML report → $fileUri';
+  _writeStatus(line, quiet: quiet);
 }
 
 /// Resolves the JSON/HTML report path under [projectPath] unless [-o] targets

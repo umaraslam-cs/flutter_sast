@@ -75,7 +75,7 @@ dart pub global activate flutter_sast
 flutter_sast .
 ```
 
-Open `flutter_sast_report.html` in a browser, or read the console summary in the terminal.
+The terminal prints a clickable `file://` link to `flutter_sast_report.html` (Cmd/Ctrl+click in most terminals), or open that file in your browser.
 
 ## Usage
 

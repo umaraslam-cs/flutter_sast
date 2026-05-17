@@ -6,6 +6,11 @@ import '../models/vulnerability.dart';
 /// Analyzes the iOS `Info.plist` for App Transport Security and privacy
 /// disclosure issues.
 class IosPlistAnalyzer {
+  IosPlistAnalyzer({this.includePrivacyKeys = false});
+
+  /// When false (default `security` profile), IOS-006 privacy keys are omitted.
+  final bool includePrivacyKeys;
+
   static const String filePath = 'ios/Runner/Info.plist';
   static const String _category = 'iOS Info.plist';
 
@@ -53,6 +58,26 @@ class IosPlistAnalyzer {
         filePath: filePath,
         category: _category,
         severity: Severity.high,
+        cwe: 'CWE-319',
+        owasp: 'M3: Insecure Communication',
+      ));
+    }
+
+    if (RegExp(
+      r'<key>example\.com</key>[\s\S]*?NSExceptionAllowsInsecureHTTPLoads',
+      multiLine: true,
+    ).hasMatch(content)) {
+      findings.add(const Vulnerability(
+        ruleId: 'IOS-003b',
+        title: 'ATS exception for placeholder domain (dev template)',
+        description:
+            'Info.plist allows insecure HTTP for a placeholder exception domain — '
+            'likely a leftover development template.',
+        recommendation:
+            'Remove development-only domains from NSExceptionDomains before release.',
+        filePath: filePath,
+        category: _category,
+        severity: Severity.low,
         cwe: 'CWE-319',
         owasp: 'M3: Insecure Communication',
       ));
@@ -127,6 +152,10 @@ class IosPlistAnalyzer {
         cwe: 'CWE-312',
         owasp: 'M9: Insecure Data Storage',
       ));
+    }
+
+    if (!includePrivacyKeys) {
+      return findings;
     }
 
     for (final String key in _privacyKeys) {

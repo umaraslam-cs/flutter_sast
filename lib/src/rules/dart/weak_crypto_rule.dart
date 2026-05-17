@@ -1,6 +1,8 @@
 // lib/src/rules/dart/weak_crypto_rule.dart
 
 import '../../analysis/line_context.dart';
+import '../../analysis/secret_heuristics.dart';
+import '../../models/finding_confidence.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
 import '../base_rule.dart';
@@ -42,6 +44,20 @@ class WeakCryptoRule extends FilePatternRule {
       final int lineNo = i + 1;
 
       if (_md5.hasMatch(line)) {
+        if (line.contains('flutter_sast:ignore md5-cache')) {
+          continue;
+        }
+        final int windowStart = (i - 5).clamp(0, lines.length - 1);
+        final int windowEnd = (i + 5).clamp(0, lines.length - 1);
+        final List<String> window =
+            lines.sublist(windowStart, windowEnd + 1);
+        final bool cacheUse = SecretHeuristics.isMd5CacheContext(line, window);
+        final bool securityUse =
+            SecretHeuristics.isSecurityCryptoContext(line, window);
+        if (cacheUse && !securityUse) {
+          continue;
+        }
+        final bool reportHigh = securityUse || (!cacheUse && !securityUse);
         findings.add(Vulnerability(
           ruleId: 'DART-004',
           title: 'Use of MD' '5 hashing algorithm',
@@ -53,11 +69,13 @@ class WeakCryptoRule extends FilePatternRule {
               'for password storage.',
           filePath: filePath,
           category: category,
-          severity: Severity.high,
+          severity: reportHigh ? Severity.high : Severity.info,
+          confidence: cacheUse ? FindingConfidence.low : FindingConfidence.medium,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-327',
           owasp: _owasp,
+          scored: reportHigh,
         ));
       }
 

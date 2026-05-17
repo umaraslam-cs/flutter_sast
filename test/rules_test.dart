@@ -35,12 +35,12 @@ void main() {
       expect(results, isEmpty);
     });
 
-    test('detects RevenueCat public key', () {
+    test('detects subscription SDK public key pattern', () {
       const String code =
           'await Purchases.configure(PurchasesConfiguration("goog_abcdefghijklmnop"));';
       final List<Vulnerability> results =
           rule.analyze('lib/main.dart', code);
-      expect(results.any((v) => v.title.contains('RevenueCat')), isTrue);
+      expect(results.any((v) => v.title.contains('Subscription SDK')), isTrue);
     });
 
     test('detects hardcoded password field', () {
@@ -191,13 +191,13 @@ await prefs.setString(_keyLastSessionDate, DateTime.now().toIso8601String());
   group('CodeSecurityRule', () {
     final CodeSecurityRule rule = CodeSecurityRule();
 
-    test('does not flag FFUploadedFile toString as path traversal', () {
+    test('does not flag upload model toString as path traversal', () {
       const String code = '''
   String toString() =>
-      'FFUploadedFile(name: \$name, bytes: \${bytes?.length ?? 0}, height: \$height,)';
+      'UploadField(name: \$name, bytes: \${bytes?.length ?? 0}, height: \$height,)';
 ''';
       final List<Vulnerability> results =
-          rule.analyze('lib/flutter_flow/uploaded_file.dart', code);
+          rule.analyze('lib/models/upload_field.dart', code);
       expect(results.where((v) => v.ruleId == 'DART-005b'), isEmpty);
     });
 
@@ -219,7 +219,7 @@ await prefs.setString(_keyLastSessionDate, DateTime.now().toIso8601String());
   });
 
   group('AndroidManifestAnalyzer', () {
-    test('detects Google Maps API key in manifest', () {
+    test('detects maps platform API key in manifest', () {
       const String manifest = '''
 <meta-data android:name="com.google.android.geo.API_KEY"
     android:value="AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"/>
@@ -347,7 +347,7 @@ dependencies:
       expect(reportWith(<Vulnerability>[]).securityScore, 100);
     });
 
-    test('securityScore < 100 with one CRITICAL finding', () {
+    test('securityScore uses confidence-weighted deductions', () {
       final ScanReport r = reportWith(<Vulnerability>[
         const Vulnerability(
           ruleId: 'DART-001',
@@ -357,10 +357,26 @@ dependencies:
           filePath: 'f',
           category: 'c',
           severity: Severity.critical,
+          confidence: FindingConfidence.high,
         ),
       ]);
-      expect(r.securityScore, lessThan(100));
-      expect(r.securityScore, greaterThanOrEqualTo(25));
+      expect(r.securityScore, 75);
+    });
+
+    test('recommendations do not reduce securityScore', () {
+      final ScanReport r = reportWith(<Vulnerability>[
+        const Vulnerability(
+          ruleId: 'DEPS-001',
+          title: 't',
+          description: 'd',
+          recommendation: 'r',
+          filePath: 'pubspec.yaml',
+          category: 'Recommendation',
+          severity: Severity.low,
+          scored: false,
+        ),
+      ]);
+      expect(r.securityScore, 100);
     });
 
     test('riskLevel == CLEAN with no findings', () {

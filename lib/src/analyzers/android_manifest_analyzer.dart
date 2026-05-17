@@ -6,6 +6,10 @@ import '../models/vulnerability.dart';
 /// Analyzes the contents of `AndroidManifest.xml` for common Android
 /// platform misconfigurations.
 class AndroidManifestAnalyzer {
+  AndroidManifestAnalyzer({this.exportedAllowlist = const <String>[]});
+
+  final List<String> exportedAllowlist;
+
   static const String filePath = 'android/app/src/main/AndroidManifest.xml';
   static const String _category = 'Android Manifest';
 
@@ -13,8 +17,12 @@ class AndroidManifestAnalyzer {
   static final RegExp _allowBackup = RegExp(r'android:allowBackup\s*=\s*"true"');
   static final RegExp _cleartextTraffic =
       RegExp(r'android:usesCleartextTraffic\s*=\s*"true"');
-  static final RegExp _exportedTag = RegExp(
-    r'<[^>]*android:exported\s*=\s*"true"[^>]*>',
+  static final RegExp _exportedComponent = RegExp(
+    r'<(activity|service|receiver|provider)\b[^>]*android:exported\s*=\s*"true"[^>]*>',
+    caseSensitive: false,
+  );
+  static final RegExp _manageExternalStorage = RegExp(
+    r'android\.permission\.MANAGE_EXTERNAL_STORAGE',
   );
   static final RegExp _androidName = RegExp(r'android:name\s*=\s*"([^"]+)"');
   static final RegExp _externalStorage = RegExp(
@@ -92,7 +100,7 @@ class AndroidManifestAnalyzer {
       ));
     }
 
-    for (final RegExpMatch match in _exportedTag.allMatches(content)) {
+    for (final RegExpMatch match in _exportedComponent.allMatches(content)) {
       final String tag = match.group(0) ?? '';
       if (!tag.contains('android:permission')) {
         // The main launcher activity must be exported without a permission;
@@ -102,6 +110,9 @@ class AndroidManifestAnalyzer {
         if (window.contains('android.intent.action.MAIN')) continue;
 
         final String component = _androidName.firstMatch(tag)?.group(1) ?? tag;
+        if (exportedAllowlist.any((String a) => component.contains(a))) {
+          continue;
+        }
         final bool mediaComponent = _mediaExportComponent.hasMatch(component);
         findings.add(Vulnerability(
           ruleId: 'AND-004',
@@ -114,7 +125,7 @@ class AndroidManifestAnalyzer {
                   'but does not require an android:permission. Review whether '
                   'other apps should be able to invoke it.',
           recommendation: mediaComponent
-              ? 'Follow your media plugin documentation (e.g. audio_service). '
+              ? 'Follow your background media plugin documentation before restricting export. '
                   'Do not set exported="false" blindly if playback depends on it.'
               : 'Add an android:permission attribute or set android:exported '
                   'to false if the component is not meant to be invoked by '
@@ -148,6 +159,23 @@ class AndroidManifestAnalyzer {
       ));
     }
 
+    if (_manageExternalStorage.hasMatch(content)) {
+      findings.add(const Vulnerability(
+        ruleId: 'AND-010',
+        title: 'MANAGE_EXTERNAL_STORAGE permission declared',
+        description:
+            'MANAGE_EXTERNAL_STORAGE grants broad file access on Android 11+. '
+            'Play Store requires a declared core use case.',
+        recommendation:
+            'Remove unless required; prefer scoped storage and SAF.',
+        filePath: filePath,
+        category: _category,
+        severity: Severity.medium,
+        cwe: 'CWE-250',
+        owasp: 'M9: Insecure Data Storage',
+      ));
+    }
+
     if (_bootCompleted.hasMatch(content)) {
       findings.add(const Vulnerability(
         ruleId: 'AND-006',
@@ -169,11 +197,11 @@ class AndroidManifestAnalyzer {
     if (_mapsApiKey.hasMatch(content) && _googleApiKeyValue.hasMatch(content)) {
       findings.add(Vulnerability(
         ruleId: 'AND-008',
-        title: 'Google Maps API key in AndroidManifest',
+        title: 'Maps platform API key in AndroidManifest',
         description:
-            'A Google Maps / Places API key (AIza…) is embedded in the manifest. '
-            'Restrict it in Google Cloud Console (Android app restriction by '
-            'package name + SHA-1).',
+            'A maps platform API key (AIza…) is embedded in the manifest. '
+            'Restrict it in the cloud console (Android app restriction by '
+            'package name + signing certificate).',
         recommendation:
             'Apply API key restrictions for this app ID; monitor usage quotas.',
         filePath: filePath,

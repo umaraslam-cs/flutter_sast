@@ -69,9 +69,21 @@ class CodeSecurityRule extends FilePatternRule {
         ));
       }
 
+      final bool fileInStringLiteral =
+          (line.contains("return '") || line.contains('return "')) &&
+              line.contains('File(');
       if (_pathTraversal.hasMatch(line) &&
+          !fileInStringLiteral &&
           !line.contains('.join(') &&
+          !LineContext.isToStringMethodLine(line) &&
+          !LineContext.isInsideToStringMethod(lines, i) &&
           !LineContext.isSafeLocalFilePathLine(line)) {
+        final int winStart = (i - 5).clamp(0, lines.length);
+        final int winEnd = (i + 5).clamp(0, lines.length);
+        final List<String> window = lines.sublist(winStart, winEnd);
+        if (LineContext.isHashedPathSegmentLine(line, window)) {
+          continue;
+        }
         findings.add(Vulnerability(
           ruleId: 'DART-005b',
           title: 'Potential path traversal',

@@ -1,0 +1,29 @@
+version: 1
+exclude:
+  glob:
+    - "**/*.g.dart"
+    - "**/build/**"
+    - "**/.dart_tool/**"
+rules:
+  DART-001:
+    exclude_globs:
+      - "**/generated/**"
+      - "**/locales.g.dart"
+  DART-004:
+    severity: info
+    only_security_context: true
+  AND-004:
+    exported_allowlist:
+      - com.example.sdk.OAuthCallbackActivity
+profiles:
+  default: security
+  security:
+    - DART-*
+    - AND-*
+    - IOS-*
+    - DEPS-002
+  privacy:
+    - IOS-006
+  web:
+    - WEB-*
+    - DART-010

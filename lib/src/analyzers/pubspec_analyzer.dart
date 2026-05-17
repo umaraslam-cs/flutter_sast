@@ -69,6 +69,8 @@ class PubspecAnalyzer {
   List<Vulnerability> analyze(
     String content, {
     bool includeAppDependencyAdvisories = true,
+    String? libSourceAggregate,
+    Set<String> importedPackages = const <String>{},
   }) {
     final List<Vulnerability> findings = <Vulnerability>[];
 
@@ -90,10 +92,11 @@ class PubspecAnalyzer {
               'Audit usage of ${dep.name}, pin to the latest version, or '
               'replace with a more secure alternative.',
           filePath: filePath,
-          category: _category,
+          category: 'Recommendation',
           severity: dep.severity,
           cwe: 'CWE-1104',
           owasp: 'M2: Inadequate Supply Chain Security',
+          scored: false,
         ));
       }
     }
@@ -101,6 +104,12 @@ class PubspecAnalyzer {
     if (includeAppDependencyAdvisories) {
       for (final _MissingDep dep in _recommended) {
         if (!declared.contains(dep.name)) {
+          final bool usesPlainPrefs = libSourceAggregate != null &&
+              RegExp(r'SharedPreferences|shared_preferences')
+                  .hasMatch(libSourceAggregate);
+          if (!usesPlainPrefs) {
+            continue;
+          }
           findings.add(Vulnerability(
             ruleId: 'DEPS-002',
             title: 'Recommended security package missing: ${dep.name}',
@@ -108,34 +117,64 @@ class PubspecAnalyzer {
             recommendation:
                 'Add ${dep.name} to dependencies and use it where appropriate.',
             filePath: filePath,
-            category: _category,
+            category: 'Recommendation',
             severity: dep.severity,
             cwe: 'CWE-693',
             owasp: 'M2: Inadequate Supply Chain Security',
+            scored: false,
           ));
         }
       }
 
-      final bool hasPinning =
+      final bool hasPinningPackage =
           _certPinningPackages.any((String pkg) => declared.contains(pkg));
-      if (!hasPinning) {
+      final bool hasInCodePinning = libSourceAggregate != null &&
+          RegExp(
+            r'validateCertificate|badCertificateCallback.*fingerprint|'
+            r'sha256.*compare|certificatePinning',
+            caseSensitive: false,
+          ).hasMatch(libSourceAggregate);
+      if (!hasPinningPackage && !hasInCodePinning) {
         findings.add(Vulnerability(
           ruleId: 'DEPS-003',
           title: 'No certificate-pinning package detected',
           description:
               'None of the recognised certificate-pinning packages '
-              '(${_certPinningPackages.join(", ")}) were found. '
-              'Consider pinning the TLS certificate or public key for '
-              'critical endpoints.',
+              '(${_certPinningPackages.join(", ")}) were found, and no in-code '
+              'pinning pattern was detected in lib/.',
           recommendation:
               'Add a certificate-pinning package and configure it for '
               'your critical API hosts.',
           filePath: filePath,
-          category: _category,
+          category: 'Recommendation',
           severity: Severity.low,
           cwe: 'CWE-295',
           owasp: 'M3: Insecure Communication',
+          scored: false,
         ));
+      }
+
+      const List<String> securityPackages = <String>[
+        'flutter_jailbreak_detection',
+        'flutter_jailbreak_detection_plus',
+        'safe_device',
+      ];
+      for (final String pkg in securityPackages) {
+        if (declared.contains(pkg) && !importedPackages.contains(pkg)) {
+          findings.add(Vulnerability(
+            ruleId: 'DEPS-004',
+            title: 'Security dependency declared but unused: $pkg',
+            description:
+                '$pkg is in pubspec.yaml but no import was found under lib/.',
+            recommendation: 'Wire up the control or remove the unused dependency.',
+            filePath: filePath,
+            category: 'Recommendation',
+            severity: Severity.info,
+            cwe: 'CWE-1104',
+            owasp: 'M2: Inadequate Supply Chain Security',
+            scored: false,
+          ));
+        }
       }
     }
 

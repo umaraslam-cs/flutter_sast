@@ -1,6 +1,7 @@
 // lib/src/rules/dart/hardcoded_secrets_rule.dart
 
 import '../../analysis/line_context.dart';
+import '../../analysis/secret_heuristics.dart';
 import '../../models/finding_confidence.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
@@ -74,7 +75,7 @@ class HardcodedSecretsRule extends FilePatternRule {
       cwe: 'CWE-798',
     ),
     _SecretPattern(
-      name: 'AppsFlyer Dev Key',
+      name: 'Attribution SDK dev key',
       regex: RegExp(
         r'''(?:appsFlyerDevKey|af[_-]?dev[_-]?key|appsflyer[_-]?dev[_-]?key)\s*[=:]\s*["']([^"']{8,})["']''',
         caseSensitive: false,
@@ -84,7 +85,7 @@ class HardcodedSecretsRule extends FilePatternRule {
       cwe: 'CWE-798',
     ),
     _SecretPattern(
-      name: 'RevenueCat API Key',
+      name: 'Subscription SDK public key',
       regex: RegExp(r'(?:goog_|appl_)[A-Za-z0-9]{10,}'),
       severity: Severity.info,
       confidence: FindingConfidence.low,
@@ -118,7 +119,8 @@ class HardcodedSecretsRule extends FilePatternRule {
     _SecretPattern(
       name: 'Bearer Token',
       regex: RegExp(
-        r'''(?:bearer|token|auth[_-]?token)\s*[=:]\s*["']([A-Za-z0-9\-_\.]{20,})["']''',
+        r'''(?:bearer\s+|Bearer\s+)([A-Za-z0-9\-_\.]{20,})|'''
+        r'''(?:auth[_-]?token)\s*[=:]\s*["'](eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)["']''',
         caseSensitive: false,
       ),
       severity: Severity.high,
@@ -167,12 +169,17 @@ class HardcodedSecretsRule extends FilePatternRule {
 
   @override
   List<Vulnerability> analyze(String filePath, String content) {
+    if (SecretHeuristics.isGeneratedDartPath(filePath)) {
+      return const <Vulnerability>[];
+    }
     final List<Vulnerability> findings = <Vulnerability>[];
     final List<String> lines = stripComments(content.split('\n'));
 
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
       if (line.trim().isEmpty || shouldSkipLineForAnalysis(line)) continue;
+      if (SecretHeuristics.isLocaleI18nConstantLine(line)) continue;
+      if (SecretHeuristics.isStorageKeyDefinitionLine(line)) continue;
 
       final LineContextKind kind = LineContext.classify(line);
       if (kind == LineContextKind.testMock) continue;
@@ -232,11 +239,31 @@ class HardcodedSecretsRule extends FilePatternRule {
     Match match,
   ) {
     if (pattern.name == 'Hardcoded Password') {
+      if (SecretHeuristics.isHardcodedCredentialAssignment(line)) {
+        return true;
+      }
       if (LineContext.isNavigationRouteConstantLine(line)) {
         return true;
       }
       final String? captured = match.groupCount >= 1 ? match.group(1) : null;
-      if (captured != null && LineContext.isRoutePathValue(captured)) {
+      if (captured != null) {
+        if (LineContext.isRoutePathValue(captured)) {
+          return true;
+        }
+        if (SecretHeuristics.isSnakeCaseIdentifierString(captured) &&
+            !SecretHeuristics.looksLikeSecretValue(captured)) {
+          return true;
+        }
+        if (!SecretHeuristics.looksLikeSecretValue(captured) &&
+            !SecretHeuristics.hasHighEntropy(captured)) {
+          return true;
+        }
+      }
+    }
+    if (pattern.name == 'Bearer Token') {
+      final String? captured = match.groupCount >= 1 ? match.group(1) : null;
+      if (captured != null &&
+          SecretHeuristics.isSnakeCaseIdentifierString(captured)) {
         return true;
       }
     }
@@ -256,17 +283,17 @@ class HardcodedSecretsRule extends FilePatternRule {
             'ship in mobile and web clients; restrict them in Google Cloud '
             '(API key restrictions, App Check) and enforce Firebase Security '
             'Rules—not by treating them like rotatable server passwords.';
-      case 'AppsFlyer Dev Key':
-        return 'An AppsFlyer development key appears hardcoded. Restrict usage '
-            'in the AppsFlyer dashboard and avoid treating it as a server secret.';
-      case 'RevenueCat API Key':
-        return 'A RevenueCat public SDK key is hardcoded. Public store keys are '
-            'expected in clients; enforce purchases and entitlements on RevenueCat '
-            'or your backend—never trust local prefs alone for authorization.';
+      case 'Attribution SDK dev key':
+        return 'A mobile attribution SDK development key (e.g. AppsFlyer) appears '
+            'hardcoded. Restrict usage in the vendor dashboard and avoid treating it '
+            'as a server secret.';
+      case 'Subscription SDK public key':
+        return 'A subscription SDK public store key (e.g. RevenueCat `goog_`/`appl_` '
+            'prefixes) is hardcoded. Public store keys are expected in clients; enforce '
+            'entitlements on your backend—never trust local prefs alone for authorization.';
       case 'Google OAuth Client ID':
-        return 'A Google OAuth client ID is present. Client IDs are public '
-            'identifiers in mobile apps; restrict with bundle IDs, redirect URIs, '
-            'and Google Cloud console settings—not by hiding them in source.';
+        return 'A public OAuth client ID is present (designed to ship in mobile '
+            'apps). Restrict with bundle IDs and redirect URIs in Google Cloud.';
       default:
         return 'A ${pattern.name} appears to be hardcoded in this file. '
             'Hardcoded credentials can be extracted from compiled binaries '
@@ -279,12 +306,12 @@ class HardcodedSecretsRule extends FilePatternRule {
       case 'Firebase API Key':
         return 'Enable App Check, tighten Firestore/Storage/Auth rules, and '
             'apply GCP API key restrictions for your app IDs and platforms.';
-      case 'AppsFlyer Dev Key':
+      case 'Attribution SDK dev key':
         return 'Confirm dashboard restrictions and remove dev keys from release '
             'builds if a separate production key is required.';
-      case 'RevenueCat API Key':
-        return 'Verify entitlements server-side or via RevenueCat; do not use '
-            'local storage flags as the sole paywall gate.';
+      case 'Subscription SDK public key':
+        return 'Verify entitlements server-side; do not use local storage flags '
+            'as the sole paywall gate.';
       case 'Google OAuth Client ID':
         return 'Confirm OAuth client restrictions in Google Cloud Console; '
             'use App Check and Firebase Auth rules for API access control.';

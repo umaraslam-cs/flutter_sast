@@ -122,6 +122,49 @@ abstract final class LineContext {
     ).hasMatch(line);
   }
 
+  /// `String toString() => 'File(key=$key, value=${value.raw})';` — display only.
+  static bool isToStringMethodLine(String line) {
+    final String t = line.trim();
+    if (t.contains('toString()') || t.startsWith('String toString')) {
+      return true;
+    }
+    if (RegExp(r'\btoString\s*\(\s*\)').hasMatch(line) &&
+        !line.contains('File(')) {
+      return true;
+    }
+    return false;
+  }
+
+  /// True when [lineIndex] sits inside a `toString()` method body.
+  static bool isInsideToStringMethod(List<String> lines, int lineIndex) {
+    for (int i = lineIndex; i >= 0 && i >= lineIndex - 12; i--) {
+      if (isToStringMethodLine(lines[i])) {
+        return true;
+      }
+      if (lines[i].contains('{') && i < lineIndex && !lines[i].contains('toString')) {
+        break;
+      }
+    }
+    return false;
+  }
+
+  /// Path built from md5/sha256/hashCode — not raw user path input.
+  static bool isHashedPathSegmentLine(String line, List<String> window) {
+    final String ctx = '$line\n${window.join('\n')}';
+    if (RegExp(r'\bFile\s*\(').hasMatch(line) &&
+        RegExp(
+          r'\b(?:md5|sha256|sha1|hashCode)\s*\(|\b(?:localFileName|cacheKey|digest|hashed)',
+          caseSensitive: false,
+        ).hasMatch(ctx)) {
+      return true;
+    }
+    if (RegExp(r'/cached-|/cache/|cached-videos', caseSensitive: false)
+        .hasMatch(line)) {
+      return RegExp(r'\bmd5\b', caseSensitive: false).hasMatch(ctx);
+    }
+    return false;
+  }
+
   /// `File('${tempDir.path}/${K.logFilename}')` — OS dir + app constant, not user input.
   static bool isSafeLocalFilePathLine(String line) {
     final RegExpMatch? fileMatch =

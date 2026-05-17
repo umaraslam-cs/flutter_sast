@@ -17,6 +17,14 @@ void main() {
   });
 
   group('AndroidManifestAnalyzer fixtures', () {
+    test('detects MANAGE_EXTERNAL_STORAGE as AND-010', () {
+      const String manifest = '''
+<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+''';
+      final findings = AndroidManifestAnalyzer().analyze(manifest);
+      expect(findings.any((v) => v.ruleId == 'AND-010'), isTrue);
+    });
+
     test('detects cleartext, backup, maps key, empty permission', () {
       final findings = AndroidManifestAnalyzer().analyze(androidXml);
       expect(findings.any((v) => v.ruleId == 'AND-003'), isTrue);
@@ -41,10 +49,13 @@ void main() {
   });
 
   group('IosPlistAnalyzer fixtures', () {
-    test('detects ATS bypass and camera usage key', () {
+    test('detects ATS bypass; IOS-006 only in privacy profile', () {
       final findings = IosPlistAnalyzer().analyze(iosPlist);
       expect(findings.any((v) => v.ruleId == 'IOS-001'), isTrue);
-      expect(findings.any((v) => v.ruleId == 'IOS-006'), isTrue);
+      expect(findings.any((v) => v.ruleId == 'IOS-006'), isFalse);
+
+      final privacy = IosPlistAnalyzer(includePrivacyKeys: true).analyze(iosPlist);
+      expect(privacy.any((v) => v.ruleId == 'IOS-006'), isTrue);
     });
   });
 

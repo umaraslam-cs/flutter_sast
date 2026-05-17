@@ -1,6 +1,8 @@
 // lib/src/rules/dart/insecure_network_rule.dart
 
 import '../../analysis/line_context.dart';
+import '../../analysis/secret_heuristics.dart';
+import '../../models/finding_confidence.dart';
 import '../../models/severity.dart';
 import '../../models/vulnerability.dart';
 import '../base_rule.dart';
@@ -58,6 +60,7 @@ class InsecureNetworkRule extends FilePatternRule {
       for (final Match match in _httpUrl.allMatches(line)) {
         final String host = match.group(1) ?? '';
         if (LineContext.isDevOrLocalHost(host)) continue;
+        final bool demoSample = SecretHeuristics.isDemoOrSamplePath(filePath);
         findings.add(Vulnerability(
           ruleId: 'DART-002',
           title: 'Insecure HTTP URL',
@@ -69,7 +72,8 @@ class InsecureNetworkRule extends FilePatternRule {
               'certificate pinning where feasible.',
           filePath: filePath,
           category: category,
-          severity: Severity.high,
+          severity: demoSample ? Severity.low : Severity.high,
+          confidence: demoSample ? FindingConfidence.low : FindingConfidence.high,
           lineNumber: lineNo,
           snippet: line.trim(),
           cwe: 'CWE-319',
@@ -94,19 +98,25 @@ class InsecureNetworkRule extends FilePatternRule {
     for (final RegExpMatch m in _badCertPattern.allMatches(stripped)) {
       final int lineNo = stripped.substring(0, m.start).split('\n').length;
       final String raw = m.group(0)!.replaceAll('\n', ' ').trim();
+      final bool hasValidateCert = _hasPinningValidationNearby(stripped, m.start);
       out.add(Vulnerability(
         ruleId: 'DART-002b',
         title: 'Bad certificate callback accepts all certificates',
-        description:
-            'badCertificateCallback returns true unconditionally, which '
-            'effectively disables TLS certificate validation and enables '
-            'trivial man-in-the-middle attacks.',
+        description: hasValidateCert
+            ? 'badCertificateCallback returns true unconditionally, but '
+                'validateCertificate with fingerprint checking exists nearby. '
+                'Harden the callback; pinning may still be effective via validateCertificate.'
+            : 'badCertificateCallback returns true unconditionally, which '
+                'effectively disables TLS certificate validation and enables '
+                'trivial man-in-the-middle attacks.',
         recommendation:
             'Remove the callback or validate the certificate (issuer, '
             'fingerprint, host) before returning true.',
         filePath: filePath,
         category: category,
-        severity: Severity.critical,
+        severity: hasValidateCert ? Severity.medium : Severity.critical,
+        confidence:
+            hasValidateCert ? FindingConfidence.medium : FindingConfidence.high,
         lineNumber: lineNo,
         snippet: raw.length > 80 ? '${raw.substring(0, 80)}…' : raw,
         cwe: 'CWE-295',
@@ -161,4 +171,13 @@ class InsecureNetworkRule extends FilePatternRule {
     }
   }
 
+  bool _hasPinningValidationNearby(String content, int offset) {
+    final int start = (offset - 1200).clamp(0, content.length);
+    final int end = (offset + 1200).clamp(0, content.length);
+    final String window = content.substring(start, end);
+    return RegExp(
+      r'validateCertificate\s*[:=]|sha256|fingerprint',
+      caseSensitive: false,
+    ).hasMatch(window);
+  }
 }

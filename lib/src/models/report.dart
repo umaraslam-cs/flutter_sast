@@ -36,24 +36,32 @@ class ScanReport {
 
   /// Heuristic hygiene score (0–100), not exploitability.
   ///
-  /// Findings reduce the score with capped deductions so advisory noise
-  /// (INFO/LOW) does not collapse real projects to 0/100.
+  /// `100 - sum(severityWeight × confidenceMultiplier)` for [Vulnerability.scored]
+  /// findings. INFO and Recommendation-category findings are excluded.
   int get securityScore {
-    if (vulnerabilities.isEmpty) {
+  final List<Vulnerability> scoredFindings = vulnerabilities
+      .where((Vulnerability v) => v.scored && v.severity != Severity.info)
+      .toList();
+    if (scoredFindings.isEmpty) {
       return 100;
     }
-    var deducted = 0;
-    for (final Vulnerability v in vulnerabilities) {
-      deducted += switch (v.severity) {
-        Severity.critical => 15,
-        Severity.high => 7,
-        Severity.medium => 4,
-        Severity.low => 2,
-        Severity.info => 0,
+    var deducted = 0.0;
+    for (final Vulnerability v in scoredFindings) {
+      final double weight = switch (v.severity) {
+        Severity.critical => 25.0,
+        Severity.high => 10.0,
+        Severity.medium => 3.0,
+        Severity.low => 1.0,
+        Severity.info => 0.0,
       };
+      deducted += weight * v.confidence.scoreMultiplier;
     }
-    return 100 - deducted.clamp(0, 75);
+    return (100 - deducted.round()).clamp(0, 100);
   }
+
+  int get recommendationCount => vulnerabilities
+      .where((Vulnerability v) => v.category == 'Recommendation')
+      .length;
 
   /// Highest severity present in the report, or `CLEAN` / `ADVISORY`.
   ///
@@ -81,8 +89,10 @@ class ScanReport {
     return 'CLEAN';
   }
 
-  bool get _onlyDependencyAdvisories =>
-      vulnerabilities.every((Vulnerability v) => v.ruleId.startsWith('DEPS-'));
+  bool get _onlyDependencyAdvisories => vulnerabilities.every(
+        (Vulnerability v) =>
+            v.ruleId.startsWith('DEPS-') || v.category == 'Recommendation',
+      );
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{

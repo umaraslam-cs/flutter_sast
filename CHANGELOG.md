@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-17
+
 ### Added
+
+- **`.flutter_sast.yml`** project config: exclude globs, rule overrides, Android exported
+  allowlist, scan profiles (`security`, `privacy`, `web`).
+- **Inline suppressions:** `// flutter_sast:ignore RULE-ID reason`.
+- **New rules:** `DART-006` (high-precision credentials), `DART-007` (env encryption keys),
+  `DART-008`/`DART-009` (header/token logging), `DART-010` (WebView allowlist),
+  `DART-002e` (Remote Config–gated TLS pinning), `DART-011` (HTTP inspector),
+  `AND-010` (MANAGE_EXTERNAL_STORAGE), `AND-011` (SDK client token in strings.xml),
+  `CONFIG-001` (env files not gitignored), `DEPS-004` (unused security deps),
+  `IOS-003b` (dev ATS domain template), `WEB-001`/`WEB-002` (web profile).
+- **`SecretHeuristics`** and regression tests (`test/regression_fixtures_test.dart`, T01–T08).
+
+### Changed
+
+- **Scoring:** `100 − Σ(severityWeight × confidenceMultiplier)`; `Recommendation` and
+  `INFO` findings excluded from score (`scored: false` on DEPS advisories).
+- **DART-001:** skips `*.g.dart`, locale i18n constants, storage key names, low-entropy
+  password literals; Bearer requires JWT/`Bearer ` prefix.
+- **DART-002b:** downgrades to **MEDIUM** when `validateCertificate` + fingerprint nearby.
+- **DART-004:** suppresses MD5 used only for cache keys.
+- **DART-005b:** skips `toString()` display strings and `File(` inside string literals.
+- **AND-004:** only `activity`/`service`/`receiver`/`provider`; SDK allowlist; never `<application>`.
+- **IOS-006:** omitted from default `security` profile (use `privacy` profile).
+- **DEPS-002/003:** `Recommendation` category; DEPS-003 skipped when in-code pinning detected.
+
+### Added (continued from pre-release)
 
 - **False-positive guards** for route constants (`editPassword = '/edit-password'`),
   safe local log paths (`tempDir.path` + `K.logFilename`), and FlutterFire OAuth
@@ -16,8 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   UI strings, benign prefs keys, dev/staging HTTP hosts, and safer logging rules.
 - **`FindingConfidence`** on every finding (`LOW` / `MEDIUM` / `HIGH`) in console,
   JSON, and HTML reports.
-- **30 rule IDs** including `AND-008` (Google Maps API key in manifest),
-  `AND-009` (invalid `uses-permission`), AppsFlyer / RevenueCat key patterns.
+- **30 rule IDs** including `AND-008` (maps platform API key in manifest),
+  `AND-009` (invalid `uses-permission`), third-party SDK key patterns.
 - **`projectName`** from `pubspec.yaml`; absolute `projectPath` in reports.
 - Root CLI shorthand: `flutter_sast` and `flutter_sast .` (no `scan` required).
 - Default outputs: console + `flutter_sast_report.json` + `.html`; clickable
@@ -36,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`riskLevel` `ADVISORY`** when only `DEPS-*` findings and nothing HIGH+.
 - **Firebase client keys**: `INFO` severity, low confidence, client-key guidance.
 - **DEPS-002 / DEPS-003** skipped for pure Dart / CLI packages (no `flutter` SDK dep).
-- Reduced false positives: `FFUploadedFile` path traversal, session prefs, static
+- Reduced false positives: upload model `toString` path traversal, session prefs, static
   logs, `api.example.com`, duplicate secret patterns per line.
 
 ### Fixed

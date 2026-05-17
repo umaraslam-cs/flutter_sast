@@ -16,4 +16,16 @@ enum FindingConfidence {
         return 'HIGH';
     }
   }
+
+  /// Multiplier used when computing [ScanReport.securityScore].
+  double get scoreMultiplier {
+    switch (this) {
+      case FindingConfidence.high:
+        return 1.0;
+      case FindingConfidence.medium:
+        return 0.5;
+      case FindingConfidence.low:
+        return 0.2;
+    }
+  }
 }

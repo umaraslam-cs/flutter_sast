@@ -69,7 +69,18 @@ abstract class FilePatternRule extends SastRule {
         t.startsWith('static const String _') ||
         t.startsWith('static final RegExp _') ||
         t.startsWith('final bool mentionsEcb') ||
-        t.startsWith('if (line.contains(_insecureRandom)');
+        t.startsWith('if (line.contains(_insecureRandom)') ||
+        t.contains('LogInterceptor') ||
+        t.contains('PrettyDioLogger') ||
+        t.contains('enableSSL') ||
+        t.contains('validateCertificate') ||
+        t.contains('badCertificateCallback');
+  }
+
+  /// Rule/analyzer implementation files (scanner package only).
+  bool shouldSkipRuleImplementationFile(String filePath) {
+    final String p = filePath.replaceAll('\\', '/');
+    return p.contains('lib/src/rules/') || p.contains('lib/src/analyzers/');
   }
 
   /// Returns [lines] with block comments (`/* */`) removed and single-line

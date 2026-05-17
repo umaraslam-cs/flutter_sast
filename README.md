@@ -3,19 +3,28 @@
 [![Dart SDK](https://img.shields.io/badge/sdk-%3E%3D3.3.0-brightgreen)](https://dart.dev/get-dart)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**flutter_sast** scans **Flutter** and **Dart** projects for common security issues: hardcoded secrets, weak crypto, insecure storage, Android/iOS misconfigurations, and dependency risks. One command writes a console summary plus `flutter_sast_report.json` and `flutter_sast_report.html`.
+**flutter_sast** is a lightweight static scanner for **Flutter** and **Dart** projects. It looks for common security misconfigurations and risky patterns in app code, platform files, and dependencies. One command prints a summary and writes `flutter_sast_report.json` and `flutter_sast_report.html`.
 
 Requires **Dart 3.3+** (Flutter **3.19+**).
 
-> Heuristic pattern matching — not a full AST or penetration test. Review findings in context.
+> **How it works:** regex and line-based heuristics — not a full AST analyzer or penetration test. Review every finding in context.
+
+### Limitations
+
+- Not semantic dataflow analysis; no guarantee a finding is exploitable
+- Not runtime / dynamic (DAST) testing
+- May report false positives; use `// flutter_sast:ignore RULE-ID` or `.flutter_sast.yml` to tune
+- Default scan skips `test/`, `build/`, and `example/` paths
 
 ## What it checks
 
-- **Dart** — secrets, HTTP/TLS, `SharedPreferences` / `GetStorage`, `FlutterSecureStorage` encryption, weak crypto, SQLi sinks, path traversal, WebView, logging, query-param secrets, and more.
-- **Android** — `AndroidManifest.xml`, `strings.xml` (debuggable, backup, cleartext, exported components, permissions).
-- **iOS** — `Info.plist` (ATS, file sharing, usage descriptions with `--profile privacy`).
-- **Dependencies** — debug packages in prod deps; secure-storage / pinning advisories for Flutter apps.
-- **Config** — `.env` gitignore, release signing, ProGuard rules.
+| Layer | Examples |
+|-------|----------|
+| **Dart** | Hardcoded secrets; cleartext HTTP / weak TLS; sensitive `SharedPreferences` / `GetStorage`; `FlutterSecureStorage` without Android encryption; patterns suggesting weak crypto, injection sinks, or unsafe paths; WebView and logging issues |
+| **Android** | `AndroidManifest.xml`, `strings.xml` — debuggable builds, backup, cleartext, exported components, permissions |
+| **iOS** | `Info.plist` — ATS, file sharing (`--profile privacy` focuses on usage-description strings) |
+| **Dependencies** | Debug packages in production deps; secure-storage / pinning advisories (Flutter apps only) |
+| **Build & config** | `.env` gitignore, release signing, ProGuard rules |
 
 ## Install
 
@@ -45,7 +54,28 @@ From your project root (where `pubspec.yaml` lives):
 flutter_sast .
 ```
 
-Same as `flutter_sast scan` or `flutter_sast scan /path/to/app`.
+The `scan` subcommand is optional — these are equivalent:
+
+```bash
+flutter_sast .
+flutter_sast scan .
+flutter_sast scan /path/to/app
+```
+
+### Example output
+
+```text
+Security Score : 72/100
+Risk Level     : HIGH
+
+[HIGH] DART-002  Insecure HTTP URL
+  File       : lib/api/client.dart:14
+  ...
+
+[MEDIUM] DART-003  SharedPreferences stores sensitive data in cleartext
+  File       : lib/auth/storage.dart:22
+  ...
+```
 
 ### CI
 
@@ -59,8 +89,9 @@ flutter_sast --fail-on-any           # exit 1 on any finding
 |------|---------|
 | `--no-dart` / `--no-android` / `--no-ios` / `--no-pubspec` | Skip that area |
 | `--no-env` | Skip `.env` files |
-| `--profile privacy` | iOS usage-description checks |
-| `--profile web` | Web CSP + `dart:io` checks |
+| `--profile privacy` | iOS `Info.plist` only (includes usage-description checks) |
+| `--profile web` | Web CSP, `dart:io` guard, WebView allowlist (`WEB-*`, `DART-010`) |
+| `--no-web` | Skip `web/index.html` (only used with `--profile web`) |
 | `-r DART-001` | Run specific rules only |
 | `-e build/` | Extra paths to skip |
 | `-o ./reports/` | Report output directory |
@@ -83,25 +114,29 @@ profiles:
   default: security
 ```
 
+`exported_allowlist` skips **AND-004** for named Android components (e.g. OAuth callback activities). Per-rule `severity` and `exclude_globs` override defaults for matching paths.
+
 Suppress a line: `// flutter_sast:ignore DART-004`
 
-Advanced options (`severity`, `exclude_globs`, custom profiles) are documented in [CHANGELOG.md](CHANGELOG.md).
+More options: [CHANGELOG.md](CHANGELOG.md).
 
 ## Reports
 
-Default: console + `flutter_sast_report.json` + `flutter_sast_report.html` in the project directory.
+Default: console + `flutter_sast_report.json` + `flutter_sast_report.html` in the **scanned project** directory.
 
 ```bash
 flutter_sast -f json -o ./security/   # JSON under ./security/
 ```
 
-**Score** (0–100) is a hygiene hint from finding severity × confidence — not exploitability. `INFO` and dependency **Recommendation** rows do not lower the score.
+**Score** (0–100) is a heuristic hygiene indicator (severity × confidence), not CVSS or exploitability. `INFO` and dependency **Recommendation** rows do not lower the score.
 
 ## Rule IDs (summary)
 
+Each finding includes a `ruleId` in console, JSON, and HTML reports.
+
 | Area | IDs |
 |------|-----|
-| Dart | `DART-001`–`018` (secrets, network, storage, crypto, code quality) |
+| Dart | `DART-001`–`018` |
 | Android | `AND-001`–`015` |
 | iOS | `IOS-001`–`006` |
 | Dependencies | `DEPS-002`, `003`, `006` |
@@ -121,16 +156,11 @@ ConsoleReporter().report(report);
 
 See [`example/main.dart`](example/main.dart).
 
-## Development
-
-```bash
-dart pub get && dart analyze && dart test
-dart pub publish --dry-run
-```
-
 ## Links
 
-- [Repository](https://github.com/umaraslam-cs/flutter_sast)
+- [pub.dev package](https://pub.dev/packages/flutter_sast)
+- [Publisher: umaraslam.dev](https://pub.dev/publishers/umaraslam.dev)
+- [Repository](https://github.com/umaraslam-cs/flutter_sast) (contributing: `dart test` in repo root)
 - [Issues](https://github.com/umaraslam-cs/flutter_sast/issues)
 - [Changelog](CHANGELOG.md)
 

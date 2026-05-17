@@ -4,6 +4,8 @@ description: >-
   SAST and vulnerability assessment CLI for Flutter/Dart. Detects hardcoded
   secrets, insecure storage, weak crypto, AndroidManifest and iOS plist
   misconfigurations, and vulnerable dependencies.
+publisher: umaraslam.dev
+
 homepage: https://github.com/umaraslam-cs/flutter_sast
 repository: https://github.com/umaraslam-cs/flutter_sast
 issue_tracker: https://github.com/umaraslam-cs/flutter_sast/issues

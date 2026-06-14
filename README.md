@@ -3,7 +3,7 @@
 [![Dart SDK](https://img.shields.io/badge/sdk-%3E%3D3.3.0-brightgreen)](https://dart.dev/get-dart)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**flutter_sast** is a lightweight static scanner for **Flutter** and **Dart** projects. It looks for common security misconfigurations and risky patterns in app code, platform files, and dependencies. One command prints a summary and writes `flutter_sast_report.json` and `flutter_sast_report.html`.
+**flutter_sast** is a lightweight static scanner for **Flutter** and **Dart** projects. It looks for common security misconfigurations and risky patterns in app code, platform files, and dependencies. One command prints a summary and writes `flutter_sast_report.html`.
 
 Requires **Dart 3.3+** (Flutter **3.19+**).
 
@@ -80,7 +80,7 @@ Risk Level     : HIGH
 ### CI
 
 ```bash
-flutter_sast -q -f json              # JSON only, no console
+flutter_sast -q                      # HTML report only, no console
 flutter_sast --fail-on-high          # exit 1 on HIGH/CRITICAL
 flutter_sast --fail-on-any           # exit 1 on any finding
 ```
@@ -94,7 +94,7 @@ flutter_sast --fail-on-any           # exit 1 on any finding
 | `--no-web` | Skip `web/index.html` (only used with `--profile web`) |
 | `-r DART-001` | Run specific rules only |
 | `-e build/` | Extra paths to skip |
-| `-o ./reports/` | Report output directory |
+| `-o ./reports/` | HTML report output directory or `.html` path |
 
 Exit codes: `0` ok, `1` policy/usage error, `2` scan error.
 
@@ -122,17 +122,18 @@ More options: [CHANGELOG.md](CHANGELOG.md).
 
 ## Reports
 
-Default: console + `flutter_sast_report.json` + `flutter_sast_report.html` in the **scanned project** directory.
+Default: console + `flutter_sast_report.html` in the **scanned project** directory.
 
 ```bash
-flutter_sast -f json -o ./security/   # JSON under ./security/
+flutter_sast -o ./security/           # HTML report under ./security/
+flutter_sast -f console               # console only, no HTML file
 ```
 
 **Score** (0–100) is a heuristic hygiene indicator (severity × confidence), not CVSS or exploitability. `INFO` and dependency **Recommendation** rows do not lower the score.
 
 ## Rule IDs (summary)
 
-Each finding includes a `ruleId` in console, JSON, and HTML reports.
+Each finding includes a `ruleId` in both console and HTML reports.
 
 | Area | IDs |
 |------|-----|

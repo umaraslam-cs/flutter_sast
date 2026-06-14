@@ -31,24 +31,24 @@ void _registerScanOptions(ArgParser parser) {
       'output',
       abbr: 'o',
       help:
-          'Report path: a .json/.html file, a directory (e.g. ./reports/), '
-          'or a basename (writes .json and .html alongside).',
+          'HTML report path: a .html file, a directory (e.g. ./reports/), '
+          'or a basename (writes flutter_sast_report.html alongside).',
     )
     ..addFlag(
       'quiet',
       abbr: 'q',
       negatable: false,
       defaultsTo: false,
-      help: 'Skip console output (file reports only).',
+      help: 'Skip console output (HTML report only).',
     )
     ..addMultiOption(
       'format',
       abbr: 'f',
-      allowed: <String>['console', 'json', 'html'],
-      defaultsTo: <String>['console', 'json', 'html'],
+      allowed: <String>['console', 'html'],
+      defaultsTo: <String>['console', 'html'],
       help:
-          'Output formats (default: console, json, and html). '
-          'Example: -f json for JSON only.',
+          'Output formats (default: console and html). '
+          'Example: -f html for HTML only.',
     )
     ..addMultiOption(
       'exclude',
@@ -168,7 +168,7 @@ class ScanCommand extends Command<int> {
 
   @override
   String get description =>
-      'Run SAST rules; console + JSON + HTML reports by default.';
+      'Run SAST rules; console + HTML reports by default.';
 
   @override
   String get invocation => '${super.invocation} [directory]';
@@ -206,8 +206,6 @@ class ScanCommand extends Command<int> {
     final bool wantsConsole = formats.contains('console') &&
         !quiet &&
         (stdout.hasTerminal || formatExplicit);
-    final bool wantsJson = formats.contains('json') ||
-        (output != null && output.endsWith('.json'));
     final bool wantsHtml = formats.contains('html') ||
         (output != null && output.endsWith('.html'));
 
@@ -242,22 +240,10 @@ class ScanCommand extends Command<int> {
     if (wantsConsole) {
       ConsoleReporter().report(report);
     }
-    if (wantsJson) {
-      final String target = _resolveReportPath(
-        projectPath: projectPath,
-        output: output,
-        extension: '.json',
-        defaultName: 'flutter_sast_report.json',
-      );
-      await JsonReporter().writeReport(report, target);
-      _writeStatus('JSON report → $target', quiet: quiet);
-    }
     if (wantsHtml) {
-      final String target = _resolveReportPath(
+      final String target = _resolveHtmlReportPath(
         projectPath: projectPath,
         output: output,
-        extension: '.html',
-        defaultName: 'flutter_sast_report.html',
       );
       await HtmlReporter().writeReport(report, target);
       _writeHtmlReportStatus(target, quiet: quiet);
@@ -297,37 +283,29 @@ void _writeHtmlReportStatus(String target, {required bool quiet}) {
   _writeStatus(line, quiet: quiet);
 }
 
-/// Resolves the JSON/HTML report path under [projectPath] unless [-o] targets
-/// that extension, a directory, or a shared basename.
-String _resolveReportPath({
+/// Resolves the HTML report path under [projectPath] unless [-o] targets a
+/// `.html` file, a directory, or an extension-less basename.
+String _resolveHtmlReportPath({
   required String projectPath,
   required String? output,
-  required String extension,
-  required String defaultName,
 }) {
+  const String defaultName = 'flutter_sast_report.html';
+
   if (output == null) {
     return p.join(projectPath, defaultName);
   }
-  if (output.endsWith(extension)) {
+  if (output.endsWith('.html')) {
     return output;
   }
-
-  final String siblingExt = extension == '.json' ? '.html' : '.json';
-  if (output.endsWith(siblingExt)) {
-    return p.join(p.dirname(output), defaultName);
-  }
-
   if (output.endsWith('/') || output.endsWith(r'\')) {
     return p.join(output, defaultName);
   }
-
   if (p.extension(output).isEmpty) {
     if (Directory(output).existsSync()) {
       return p.join(output, defaultName);
     }
-    return '$output$extension';
+    return '$output.html';
   }
-
   return p.join(projectPath, defaultName);
 }
 

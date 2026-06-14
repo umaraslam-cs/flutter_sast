@@ -12,5 +12,4 @@ export 'src/models/vulnerability.dart' show Vulnerability;
 export 'src/models/severity.dart' show Severity;
 export 'src/models/finding_confidence.dart' show FindingConfidence;
 export 'src/reporters/console_reporter.dart' show ConsoleReporter;
-export 'src/reporters/json_reporter.dart' show JsonReporter;
 export 'src/reporters/html_reporter.dart' show HtmlReporter;

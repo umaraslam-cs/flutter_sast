@@ -29,10 +29,6 @@ Future<void> main() async {
   final ScanReport report = await scanner.scan(packageRoot);
 
   ConsoleReporter().report(report);
-  await JsonReporter().writeReport(
-    report,
-    p.join(packageRoot, 'flutter_sast_report.json'),
-  );
   await HtmlReporter().writeReport(
     report,
     p.join(packageRoot, 'flutter_sast_report.html'),
